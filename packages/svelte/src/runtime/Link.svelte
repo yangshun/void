@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { getContext, onDestroy, onMount, type Snippet } from "svelte";
+  import { getContext, onDestroy, onMount } from "svelte";
+  import type { LinkProps } from "./link-props.ts";
   import {
     isModifiedEvent,
     mergeDataIntoHref,
+    resolveLinkHref,
     type PrefetchOptions,
     type VoidRouter,
   } from "void/pages-client";
 
   type PrefetchStrategy = "hover" | "click" | "mount" | "visible";
   type LinkMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  type NavigateEvent = { preventDefault(): void };
-  type EventHandler<T extends Event> = (event: T) => void;
 
   let {
     href,
@@ -33,28 +33,7 @@
     ontouchstart: onTouchStartProp = undefined,
     style = undefined,
     ...rest
-  }: {
-    href: string;
-    method?: LinkMethod | Lowercase<LinkMethod>;
-    data?: Record<string, unknown>;
-    preserveScroll?: boolean;
-    preserveState?: boolean;
-    replace?: boolean;
-    reloadDocument?: boolean;
-    viewTransition?: boolean;
-    prefetch?: boolean | PrefetchStrategy | Array<PrefetchStrategy>;
-    cacheFor?: number | string | [string, string];
-    onNavigate?: (event: NavigateEvent) => void;
-    children?: Snippet;
-    onclick?: EventHandler<MouseEvent>;
-    onmouseenter?: EventHandler<MouseEvent>;
-    onmouseleave?: EventHandler<MouseEvent>;
-    onfocus?: EventHandler<FocusEvent>;
-    onmousedown?: EventHandler<MouseEvent>;
-    ontouchstart?: EventHandler<TouchEvent>;
-    style?: string;
-    [key: string]: unknown;
-  } = $props();
+  }: LinkProps = $props();
 
   const router = getContext<VoidRouter>("__void_router");
 
@@ -204,7 +183,8 @@
 
   const normalizedMethod = $derived(method.toUpperCase() as LinkMethod);
   const isGet = $derived(normalizedMethod === "GET");
-  const hrefWithData = $derived(isGet ? mergeDataIntoHref(href, data) : href);
+  const resolvedHref = $derived(resolveLinkHref(href, data));
+  const hrefWithData = $derived(isGet ? mergeDataIntoHref(resolvedHref, data) : resolvedHref);
   const strategies = $derived(getStrategies());
   const resolvedStyle = $derived(
     style ? `touch-action: manipulation; ${style}` : "touch-action: manipulation",

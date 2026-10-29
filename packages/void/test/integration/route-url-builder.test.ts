@@ -34,7 +34,15 @@ async function createFixture() {
     'pages/users/[id].tsx': 'export default function Page() { return null; }',
     'pages/files/[...path].tsx': 'export default function Page() { return null; }',
     'pages/wild/[...].tsx': 'export default function Page() { return null; }',
-    'check.ts': `import { routeUrl, type RouteOptions, type RoutePath } from 'void/routes';
+    'check.ts': `import {
+  routeUrl,
+  type RouteDestination,
+  type RouteHref,
+  type RouteOptions,
+  type RoutePath,
+} from 'void/routes';
+import type { LinkHrefProps, VoidRouter } from 'void/pages-client';
+import { defineHandler, defineMiddleware, type CloudContext } from 'void/handler';
 const path: RoutePath = '/users/:id';
 const options: RouteOptions<typeof path> = { params: { id: 123 }, query: { tab: 'activity' }, hash: 'details' };
 const url: string = routeUrl(path, options);
@@ -59,6 +67,32 @@ routeUrl('/files/:path{.+}');
 // @ts-expect-error anonymous catch-all routes require a wildcard param
 routeUrl('/wild/*');
 void url;
+const destination: RouteDestination = { pathname: '/users/:id', params: { id: 123 }, query: { tab: 'activity' } };
+const typedLink: LinkHrefProps = { href: destination };
+const legacyLink: LinkHrefProps = { href: '/users/123', data: { tab: 'activity' } };
+// Object href/data combinations are validated at runtime so wrappers can forward props.
+const objectLinkWithData: LinkHrefProps = { href: destination, data: {} };
+declare const href: RouteHref;
+const unionLink: LinkHrefProps = { href };
+const forwardLinkProps = (props: Omit<LinkHrefProps, 'data'>): LinkHrefProps => props;
+declare const router: VoidRouter;
+void router.visit(destination);
+void router.prefetch(destination);
+router.flush(destination);
+// @ts-expect-error destinations require path params
+void router.visit({ pathname: '/users/:id' });
+void typedLink; void legacyLink; void objectLinkWithData; void unionLink; void forwardLinkProps;
+declare const honoContext: Parameters<ReturnType<typeof defineMiddleware>>[0];
+const context: CloudContext = honoContext;
+const response: Response & { _status: 307 } = context.redirect(url, 307);
+void response;
+void context.rewrite(destination);
+// @ts-expect-error Hono redirects require a string or URL
+context.redirect(destination);
+// @ts-expect-error typed server rewrites reject unknown patterns
+void context.rewrite({ pathname: '/unknown' });
+defineHandler(c => c.redirect(url));
+defineMiddleware(async c => c.redirect(url));
 `,
   };
   for (const [path, content] of Object.entries(files)) {

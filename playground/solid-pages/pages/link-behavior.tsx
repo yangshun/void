@@ -1,4 +1,4 @@
-import { Link } from '@void/solid';
+import { Link, useRouter } from '@void/solid';
 import { ErrorBoundary, createSignal } from 'solid-js';
 import type { Props } from './link-behavior.server.ts';
 
@@ -11,6 +11,8 @@ type LinkBehaviorWindow = Window & {
 };
 
 export default function LinkBehaviorPage(props: Props) {
+  const [typedUserId, setTypedUserId] = createSignal('1');
+  const router = useRouter();
   const [prefetchMethod, setPrefetchMethod] = createSignal<'GET' | 'POST'>('GET');
   const [reloadMethod, setReloadMethod] = createSignal<'GET' | 'POST'>('GET');
 
@@ -24,6 +26,31 @@ export default function LinkBehaviorPage(props: Props) {
   return (
     <div>
       <h1>{props.title}</h1>
+      <p>
+        <button data-testid="typed-update" onClick={() => setTypedUserId('2')}>
+          Change typed user
+        </button>
+        <Link
+          href={{
+            pathname: '/users/:id',
+            params: { id: typedUserId() },
+            query: { tab: 'activity' },
+            hash: 'details',
+          }}
+          prefetch
+          data-testid="typed-link"
+        >
+          Typed user
+        </Link>
+        <button
+          data-testid="typed-visit"
+          onClick={() =>
+            router.visit({ pathname: '/users/:id', params: { id: '2' }, query: { tab: 'visit' } })
+          }
+        >
+          Typed visit
+        </button>
+      </p>
 
       <p>
         <Link

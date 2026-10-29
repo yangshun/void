@@ -87,6 +87,18 @@ export type RouteOptions<P extends RoutePath> = {
   ? { params?: never }
   : { params: { [K in RoutePathMap[P] & string]: string | number } });
 
+export type RouteDestination<P extends RoutePath = RoutePath> = P extends RoutePath
+  ? { pathname: P } & RouteOptions<P>
+  : never;
+
+export type RouteHref = string | URL | RouteDestination;
+
+type UrlOptions = {
+  params?: Record<string, string | number>;
+  query?: RouteQuery;
+  hash?: string;
+};
+
 /** Build a relative URL from a known route pattern. */
 export function routeUrl<P extends RoutePath>(
   path: P,
@@ -94,7 +106,22 @@ export function routeUrl<P extends RoutePath>(
     ? [options?: RouteOptions<P>]
     : [options: RouteOptions<P>]
 ): string {
-  const options = args[0];
+  return buildHref(path, args[0]);
+}
+
+/** @internal Resolve navigation inputs without requiring a browser origin. */
+export function resolveHref(value: RouteHref): string;
+export function resolveHref(value: string | URL | ({ pathname: string } & UrlOptions)): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof URL) {
+    return value.href;
+  }
+  return buildHref(value.pathname, value);
+}
+
+function buildHref(path: string, options?: UrlOptions): string {
   const params = Object.fromEntries(
     Object.entries(options?.params ?? {}).map(([name, value]) => {
       if (typeof value !== 'string' && typeof value !== 'number') {

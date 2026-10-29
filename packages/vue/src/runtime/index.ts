@@ -1,5 +1,6 @@
 export { Form } from './form.ts';
 export { Link } from './link.ts';
+export type { LinkProps } from './link.ts';
 export { useRouter } from './use-router.ts';
 export { useParams } from './use-params.ts';
 export { useShared } from './use-shared.ts';

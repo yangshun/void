@@ -20,11 +20,13 @@ import {
   isAbortError,
   isCallSiteActionError,
   refreshPage,
+  resolveHref,
   type PageNavigationResource,
   type PageNavigationResult,
   type NavigationState,
   type VisitOptions,
   type VoidRouter,
+  type RouteHref,
 } from 'void/pages-client';
 import type { CacheForResult } from 'void/pages-prefetch';
 import type { PageObject } from 'void/pages-protocol';
@@ -154,11 +156,12 @@ function currentUrl(): string {
   return window.location.pathname + window.location.search + window.location.hash;
 }
 
-function normalizeUrl(value: string | URL): string {
-  if (typeof value === 'string' && value.startsWith('#')) {
-    return value;
+function normalizeUrl(value: RouteHref): string {
+  const href = resolveHref(value);
+  if (href.startsWith('#')) {
+    return href;
   }
-  const url = value instanceof URL ? value : new URL(value, window.location.origin);
+  const url = new URL(href, window.location.origin);
   return url.origin === window.location.origin ? url.pathname + url.search + url.hash : url.href;
 }
 

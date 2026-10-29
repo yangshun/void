@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
 
-import type { ActionUrl, ResolveActionBody, ResolveActionParams } from 'void/routes';
+import type { ActionUrl, ResolveActionBody, ResolveActionParams, RouteHref } from 'void/routes';
+import { resolveHref } from '../runtime/route-url.ts';
 import { interpolateRouteParams } from '../runtime/route-url.ts';
 import {
   VoidActionError,
@@ -37,6 +38,8 @@ export {
   type FormResetOptions,
 } from './form-reset.ts';
 export { interpolateRouteParams };
+export { resolveHref };
+export type { RouteDestination, RouteHref } from 'void/routes';
 export {
   createPageNavigationEngine,
   hasFiles,
@@ -62,16 +65,30 @@ export type NavigationState = {
   method: NavigationMethod | null;
 };
 
+// Keep Link props as one object shape so wrappers can Omit and forward them.
+// `resolveLinkHref` rejects `data` with object hrefs at runtime.
+export type LinkHrefProps = { href: RouteHref; data?: Record<string, unknown> };
+
+/** @internal String hrefs retain their legacy GET query and mutation body data. */
+export function resolveLinkHref(href: RouteHref, data?: Record<string, unknown>): string {
+  if (typeof href !== 'string' && data !== undefined) {
+    throw new TypeError(
+      'Link: data is only supported with a string href. Put query values in href.query.',
+    );
+  }
+  return resolveHref(href);
+}
+
 export type VoidRouter = {
   _hoverDelay: number;
   readonly url: URL;
   readonly path: string;
   readonly query: URLSearchParams;
   readonly params: Record<string, string>;
-  visit(url: string | URL, options?: VisitOptions): Promise<unknown>;
+  visit(url: RouteHref, options?: VisitOptions): Promise<unknown>;
   refresh(options?: VisitOptions): Promise<unknown>;
-  prefetch(url: string | URL, options?: PrefetchOptions): Promise<unknown>;
-  flush(url: string | URL, method?: string): void;
+  prefetch(url: RouteHref, options?: PrefetchOptions): Promise<unknown>;
+  flush(url: RouteHref, method?: string): void;
   flushAll(): void;
 };
 
@@ -102,11 +119,12 @@ function toUrl(value: string | URL): URL {
   return value instanceof URL ? new URL(value.href) : new URL(value || '/', getUrlOrigin());
 }
 
-function normalizeUrl(value: string | URL): string {
-  if (typeof value === 'string' && value.startsWith('#')) {
-    return value;
+function normalizeUrl(value: RouteHref): string {
+  const href = resolveHref(value);
+  if (href.startsWith('#')) {
+    return href;
   }
-  const url = toUrl(value);
+  const url = toUrl(href);
   return isSameOrigin(url, getUrlOrigin()) ? url.pathname + url.search + url.hash : url.href;
 }
 

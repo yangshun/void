@@ -1,5 +1,6 @@
 export { default as Form } from './Form.svelte';
 export { default as Link } from './Link.svelte';
+export type { LinkProps } from './link-props.ts';
 export { useRouter } from './use-router.ts';
 export { useParams } from './use-params.ts';
 export { useShared } from './use-shared.ts';

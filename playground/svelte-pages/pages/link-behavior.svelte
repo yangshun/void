@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Link } from "@void/svelte";
+  import { Link, useRouter } from "@void/svelte";
   import type { Props } from "./link-behavior.server.ts";
 
   type LinkBehaviorWindow = Window & {
@@ -9,6 +9,8 @@
   };
 
   let { title }: Props = $props();
+  let typedUserId = $state("1");
+  const router = useRouter();
 
   function setClicked() {
     (window as LinkBehaviorWindow).__linkOnClick = true;
@@ -27,6 +29,29 @@
 
 <div>
   <h1>{title}</h1>
+  <p>
+    <button data-testid="typed-update" onclick={() => { typedUserId = "2"; }}>
+      Change typed user
+    </button>
+    <Link
+      href={{
+        pathname: "/users/:id",
+        params: { id: typedUserId },
+        query: { tab: "activity" },
+        hash: "details",
+      }}
+      prefetch
+      data-testid="typed-link"
+    >
+      Typed user
+    </Link>
+    <button
+      data-testid="typed-visit"
+      onclick={() => router.visit({ pathname: "/users/:id", params: { id: "2" }, query: { tab: "visit" } })}
+    >
+      Typed visit
+    </button>
+  </p>
 
   <p>
     <Link href="/users" data-testid="onclick-link" onclick={setClicked}>

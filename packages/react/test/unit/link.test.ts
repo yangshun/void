@@ -3,7 +3,44 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vite-plus/test';
 import { Link } from '../../src/runtime/link.tsx';
 
+declare module 'void/routes' {
+  interface RoutePathMap {
+    '/link-test/:id': 'id';
+  }
+}
+
 describe('Link', () => {
+  it('renders an encoded typed destination without leaking its fields into HTML', () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        Link,
+        {
+          href: {
+            pathname: '/link-test/:id',
+            params: { id: 'a/b' },
+            query: { tab: 'activity' },
+            hash: 'details',
+          },
+        },
+        'User',
+      ),
+    );
+    expect(markup).toContain('href="/link-test/a%2Fb?tab=activity#details"');
+    expect(markup).not.toMatch(/pathname=|params=|query=/);
+  });
+
+  it('rejects object hrefs with legacy data for JavaScript callers', () => {
+    expect(() =>
+      renderToStaticMarkup(
+        createElement(
+          Link,
+          { href: { pathname: '/link-test/:id', params: { id: '123' } }, data: {} },
+          'User',
+        ),
+      ),
+    ).toThrow('data is only supported with a string href');
+  });
+
   it('preserves dot-segment relative hrefs when merging GET data', () => {
     const markup = renderToStaticMarkup(
       createElement(
