@@ -1,7 +1,8 @@
-import { readdirSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { createPagesPlugin, generateComponentManifest } from 'void/pages';
 import type { PageScanResult, StaticPageDataBuildOptions } from 'void/pages';
+
+export const PAGE_EXTENSIONS: ReadonlyArray<string> = ['svelte'];
 
 const CLIENT_ENTRY_ID = 'virtual:void-pages-client';
 const SVELTE_OPTIMIZE_DEPS = {
@@ -23,30 +24,10 @@ type PagesPluginOptions = {
   prefetch?: PrefetchConfig;
 };
 
-/** Check if the pages directory has any non-island Svelte page files. */
-function hasNonIslandPages(dir: string): boolean {
-  try {
-    for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
-      if (!entry.isFile()) {
-        continue;
-      }
-      const name = entry.name;
-      if (name.startsWith('_') || name.startsWith('layout.')) {
-        continue;
-      }
-      if (name.endsWith('.svelte') && !name.includes('.island.')) {
-        return true;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return false;
-}
-
 export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Plugin {
   return createPagesPlugin(pagesDir, {
     name: 'void-svelte:pages',
+    extensions: PAGE_EXTENSIONS,
     root: options?.root,
     generateRenderer(scan) {
       return generateRendererModule(scan, pagesDir);
@@ -60,7 +41,7 @@ export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Plu
         staticPageData,
       );
     },
-    config({ isDev }) {
+    async config({ isDev, scan }) {
       if (isDev) {
         return {
           optimizeDeps: SVELTE_OPTIMIZE_DEPS,
@@ -75,7 +56,8 @@ export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Plu
       }
 
       // Skip the pages-client bundle when all pages are island pages
-      if (!hasNonIslandPages(pagesDir)) {
+      const pageScan = await scan();
+      if (!pageScan?.pages.some((page) => !page.island)) {
         return;
       }
 

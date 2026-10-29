@@ -1,7 +1,8 @@
-import { readdirSync } from 'node:fs';
 import { normalizePath, type Plugin } from 'vite';
 import { createPagesPlugin, generateComponentManifest } from 'void/pages';
 import type { PageScanResult, StaticPageDataBuildOptions } from 'void/pages';
+
+export const PAGE_EXTENSIONS: ReadonlyArray<string> = ['vue'];
 
 const CLIENT_ENTRY_ID = 'virtual:void-pages-client';
 
@@ -91,27 +92,6 @@ function stripDefinePropsTypeArgument(code: string): string | null {
   return code.slice(0, start) + '\n'.repeat(newlineCount) + code.slice(end + 1);
 }
 
-/** Check if the pages directory has any non-island Vue page files. */
-function hasNonIslandPages(dir: string): boolean {
-  try {
-    for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
-      if (!entry.isFile()) {
-        continue;
-      }
-      const name = entry.name;
-      if (name.startsWith('_') || name.startsWith('layout.')) {
-        continue;
-      }
-      if (name.endsWith('.vue') && !name.includes('.island.')) {
-        return true;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return false;
-}
-
 export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): ReadonlyArray<Plugin> {
   const normalizedPagesDir = normalizePath(pagesDir);
   return [
@@ -151,6 +131,7 @@ export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Rea
     },
     createPagesPlugin(pagesDir, {
       name: 'void-vue:pages',
+      extensions: PAGE_EXTENSIONS,
       root: options?.root,
       generateRenderer(scan) {
         return generateRendererModule(scan, pagesDir);
@@ -164,7 +145,7 @@ export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Rea
           staticPageData,
         );
       },
-      config({ isDev }) {
+      async config({ isDev, scan }) {
         if (isDev) {
           return {
             optimizeDeps: {
@@ -177,7 +158,8 @@ export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Rea
         }
 
         // Skip the pages-client bundle when all pages are island pages
-        if (!hasNonIslandPages(pagesDir)) {
+        const pageScan = await scan();
+        if (!pageScan?.pages.some((page) => !page.island)) {
           return;
         }
 

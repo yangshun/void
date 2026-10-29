@@ -51,6 +51,7 @@ describe('shared Pages plugin scan lifecycle', () => {
   function setup() {
     return createPagesPlugin(pagesDir, {
       name: 'test:pages',
+      extensions: ['tsx'],
       generateRenderer(scan) {
         return JSON.stringify(scan.layouts);
       },
@@ -65,12 +66,16 @@ describe('shared Pages plugin scan lifecycle', () => {
     const pending = pendingScan();
     vi.mocked(scanPages).mockReturnValueOnce(pending.promise);
     const plugin = setup();
-    plugin.config({}, { command: 'serve' });
+    await plugin.config({}, { command: 'serve' });
 
     const build = handler(plugin.buildStart)();
     const renderer = handler(plugin.load)('\0virtual:void-pages-renderer');
     const client = handler(plugin.load)('\0virtual:void-pages-client');
-    expect(scanPages).toHaveBeenCalledExactlyOnceWith(root, { pagesDir, environment: 'dev' });
+    expect(scanPages).toHaveBeenCalledExactlyOnceWith(root, {
+      pagesDir,
+      extensions: ['tsx'],
+      environment: 'dev',
+    });
 
     pending.resolve(scanWithLayout('layout.tsx'));
     await build;
@@ -82,7 +87,7 @@ describe('shared Pages plugin scan lifecycle', () => {
   it('waits for a watcher rescan before serving either dev module', async () => {
     vi.mocked(scanPages).mockResolvedValueOnce(scanWithLayout('before.tsx'));
     const plugin = setup();
-    plugin.config({}, { command: 'serve' });
+    await plugin.config({}, { command: 'serve' });
     await handler(plugin.buildStart)();
 
     const events = new Map<string, (path: string) => Promise<void>>();
@@ -112,14 +117,18 @@ describe('shared Pages plugin scan lifecycle', () => {
     const failure = new Error('Invalid page layout');
     vi.mocked(scanPages).mockRejectedValueOnce(failure);
     const plugin = setup();
-    plugin.config({}, { command: 'build' });
+    await plugin.config({}, { command: 'build' });
     await expect(handler(plugin.buildStart)()).rejects.toBe(failure);
 
     vi.mocked(scanPages).mockResolvedValueOnce(scanWithLayout('recovered.tsx'));
     await expect(handler(plugin.load)('\0virtual:void-pages-renderer')).resolves.toContain(
       'recovered.tsx',
     );
-    expect(scanPages).toHaveBeenLastCalledWith(root, { pagesDir, environment: 'prod' });
+    expect(scanPages).toHaveBeenLastCalledWith(root, {
+      pagesDir,
+      extensions: ['tsx'],
+      environment: 'prod',
+    });
     expect(scanPages).toHaveBeenCalledTimes(2);
   });
 

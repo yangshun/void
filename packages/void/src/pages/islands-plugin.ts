@@ -63,13 +63,17 @@ export function resolveSpecifier(
  * layouts can reach a stylesheet through a component, which only the module
  * graph shows, so the islands client entry is built for every such app.
  */
-export async function hasIslandPages(root: string, pagesDir: string): Promise<boolean> {
+export async function hasIslandPages(
+  root: string,
+  pagesDir: string,
+  extensions?: ReadonlyArray<string>,
+): Promise<boolean> {
   if (!existsSync(pagesDir)) {
     return false;
   }
   try {
     // Only builds call this, so count the pages a build keeps.
-    return (await scanPages(root, { pagesDir, environment: 'prod' })).pages.some(
+    return (await scanPages(root, { pagesDir, extensions, environment: 'prod' })).pages.some(
       (page) => page.island,
     );
   } catch {
@@ -312,6 +316,7 @@ export function watchPagesForRescan(
   pagesDir: string,
   root: string,
   onRescan: (pageScan: PageScanResult) => void,
+  extensions?: ReadonlyArray<string>,
 ): { flush: () => Promise<void> } {
   let pending: Promise<void> | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -331,7 +336,7 @@ export function watchPagesForRescan(
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
       // Only the dev server watches pages, so keep the dev pages.
-      pending = scanPages(root, { pagesDir, environment: 'dev' })
+      pending = scanPages(root, { pagesDir, extensions, environment: 'dev' })
         .then(
           (pageScan) => {
             onRescan(pageScan);

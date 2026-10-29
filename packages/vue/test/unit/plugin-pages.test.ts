@@ -9,6 +9,9 @@ import { pagesPlugin } from '../../src/plugin-pages.ts';
 
 const TMP = join(import.meta.dirname, '__tmp_pages_plugin__');
 const PAGES_DIR = join(TMP, 'pages');
+const MARKDOWN_CONFIG = {
+  plugins: [{ name: 'test:markdown', api: { voidPages: { extensions: ['md'] } } }],
+};
 
 type HookWithHandler<T> = { handler: T };
 type PagesPluginHooks = {
@@ -80,7 +83,7 @@ async function loadGeneratedPatchProps(
   plugin: PagesPluginHooks,
   virtualId: '\0virtual:void-pages-renderer' | '\0virtual:void-pages-client',
 ): Promise<PatchProps> {
-  getHookHandler(plugin.config)({}, { command: 'build' });
+  await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
   await getHookHandler(plugin.buildStart).call({});
   const source = await getHookHandler(plugin.load)(virtualId);
   if (!source) {
@@ -246,7 +249,7 @@ describe('pagesPlugin dev HMR', () => {
     if (!plugin) {
       throw new Error('Expected void-vue:pages plugin.');
     }
-    getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const handlers = setupWatcher(plugin);
 
@@ -270,7 +273,7 @@ describe('pagesPlugin dev HMR', () => {
     if (!plugin) {
       throw new Error('Expected void-vue:pages plugin.');
     }
-    getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const logError = vi.fn();
     const invalidateModule = vi.fn();
@@ -318,7 +321,7 @@ describe('pagesPlugin environment suffixes', () => {
     if (!plugin) {
       throw new Error('Expected void-vue:pages plugin.');
     }
-    getHookHandler(plugin.config)({}, { command: 'build' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
     await getHookHandler(plugin.buildStart).call({});
     const load = getHookHandler(plugin.load);
 
@@ -342,7 +345,7 @@ describe('pagesPlugin environment suffixes', () => {
     if (!plugin) {
       throw new Error('Expected void-vue:pages plugin.');
     }
-    getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const load = getHookHandler(plugin.load);
 
@@ -361,7 +364,9 @@ describe('pagesPlugin environment suffixes', () => {
     if (!plugin) {
       throw new Error('Expected void-vue:pages plugin.');
     }
-    expect(getHookHandler(plugin.config)({}, { command: 'serve' })).toBeUndefined();
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' }),
+    ).toBeUndefined();
 
     writePage('debug.dev.vue', '<template><h1>Debug</h1></template>\n');
     await getHookHandler(plugin.buildStart).call({});

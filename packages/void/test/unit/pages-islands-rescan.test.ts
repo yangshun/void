@@ -19,7 +19,12 @@ function writePage(relativePath: string, source: string): string {
 function setup(onRescan: (scan: PageScanResult) => void) {
   const watcher = new EventEmitter();
   const server = { watcher, environments: {} } as unknown as ViteDevServer;
-  const { flush } = watchPagesForRescan(server, PAGES_DIR, TMP, onRescan);
+  const { flush } = watchPagesForRescan(server, PAGES_DIR, TMP, onRescan, [
+    'tsx',
+    'vue',
+    'svelte',
+    'md',
+  ]);
   return {
     /** Emit a watcher event, run the debounce timer, and return the scan promise. */
     emitAdd(path: string): Promise<void> {
@@ -82,9 +87,9 @@ describe('hasIslandPages', () => {
   it('counts only the island pages a build keeps', async () => {
     writePage('index.tsx', 'export default () => null;');
     writePage('x.dev.island.tsx', 'export default () => null;');
-    expect(await hasIslandPages(TMP, PAGES_DIR)).toBe(false);
+    expect(await hasIslandPages(TMP, PAGES_DIR, ['tsx', 'vue', 'svelte', 'md'])).toBe(false);
 
     writePage('y.prod.island.tsx', 'export default () => null;');
-    expect(await hasIslandPages(TMP, PAGES_DIR)).toBe(true);
+    expect(await hasIslandPages(TMP, PAGES_DIR, ['tsx', 'vue', 'svelte', 'md'])).toBe(true);
   });
 });

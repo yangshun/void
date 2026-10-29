@@ -36,7 +36,7 @@ Use this page as a command reference. If you are setting up a project for the fi
 | Command                           | Purpose                                                                       |
 | --------------------------------- | ----------------------------------------------------------------------------- |
 | `void deploy`                     | Build and deploy to the configured platform                                   |
-| `void prepare`                    | Generate `.void` artifacts without starting Vite                              |
+| `void prepare`                    | Generate `.void` types and project configuration                              |
 | `void info [--json]`              | Inspect persistent resource names before moving their code                    |
 | `void gen model <name> [cols...]` | Scaffold a Drizzle table and API routes                                       |
 | `void gen route <path>`           | Create an API route                                                           |

@@ -2,6 +2,8 @@ import type { Plugin } from 'vite';
 import { createPagesPlugin, generateComponentManifest } from 'void/pages';
 import type { PageScanResult, StaticPageDataBuildOptions } from 'void/pages';
 
+export const PAGE_EXTENSIONS: ReadonlyArray<string> = ['tsx', 'jsx'];
+
 const CLIENT_ENTRY_ID = 'virtual:void-pages-client';
 
 export type PrefetchConfig = {
@@ -18,6 +20,7 @@ type PagesPluginOptions = {
 export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Plugin {
   return createPagesPlugin(pagesDir, {
     name: 'void-solid:pages',
+    extensions: PAGE_EXTENSIONS,
     root: options?.root,
     generateRenderer(scan) {
       return generateRendererModule(scan, pagesDir);

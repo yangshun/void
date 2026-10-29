@@ -23,6 +23,7 @@ import {
 import { ROUTE_EXTENSIONS, ROUTE_EXTENSIONS_SET } from '../shared/route-extensions.ts';
 import { deriveFromSource } from '../shared/source-analysis-cache.ts';
 import { staticExportInitializers, staticLiteral } from '../shared/static-exports.ts';
+import { loadPageExtensions } from './extensions.ts';
 import { scriptBlocks } from './island-imports.ts';
 import { resolveNamedLayout } from './layout-resolution.ts';
 import { patternToRegex } from './manifest.ts';
@@ -37,7 +38,6 @@ import type {
   SsrMode,
 } from './types.ts';
 
-const COMPONENT_EXTENSIONS = ['vue', 'tsx', 'jsx', 'svelte', 'md'];
 const PAGE_METHODS = new Set(['loader', 'action', 'actions']);
 export const MAX_REVALIDATE = 31536000; // 1 year in seconds
 
@@ -58,6 +58,8 @@ type PageRenderingSource = {
 };
 
 type PageScanOptions = {
+  /** Page formats declared by active plugins. Omitted outside Vite to read the project config. */
+  extensions?: ReadonlyArray<string>;
   output?: 'server' | 'static';
   paths?: ProjectPaths;
   pagesDir?: string;
@@ -219,9 +221,12 @@ function resolvePageRendering(
 /**
  * The environment a file under pages/ is limited to, read from its name the way
  * scanPages does: `home.dev.tsx`, `home.dev.island.vue` and `home.dev.server.ts`
- * give 'dev'. Files the scanner skips (`_` segments, other extensions) give null.
+ * give 'dev'. Private paths and formats outside an explicit extension list give null.
  */
-export function pageFileEnvironment(relativePath: string): RouteEnvironment | null {
+export function pageFileEnvironment(
+  relativePath: string,
+  extensions?: ReadonlyArray<string>,
+): RouteEnvironment | null {
   const segments = toSlash(relativePath).split('/');
   if (segments.some((segment) => segment.startsWith('_'))) {
     return null;
@@ -231,7 +236,11 @@ export function pageFileEnvironment(relativePath: string): RouteEnvironment | nu
   let base = basename(file, ext);
   if (ROUTE_EXTENSIONS_SET.has(ext) && base.endsWith('.server')) {
     base = base.slice(0, -'.server'.length);
-  } else if (COMPONENT_EXTENSIONS.includes(ext.slice(1))) {
+  } else if (
+    extensions
+      ? extensions.includes(ext.slice(1))
+      : ext && (!ROUTE_EXTENSIONS_SET.has(ext) || ext.endsWith('x'))
+  ) {
     if (base.endsWith('.island')) {
       base = base.slice(0, -'.island'.length);
     }
@@ -241,13 +250,58 @@ export function pageFileEnvironment(relativePath: string): RouteEnvironment | nu
   return base.endsWith('.dev') ? 'dev' : base.endsWith('.prod') ? 'prod' : null;
 }
 
+function sortPages(pages: Array<PageDefinition>): Array<PageDefinition> {
+  return pages.sort((a, b) => {
+    if (a.catchAll !== b.catchAll) {
+      return a.catchAll ? 1 : -1;
+    }
+    const aDynamic = a.pattern.includes(':');
+    const bDynamic = b.pattern.includes(':');
+    if (aDynamic !== bDynamic) {
+      return aDynamic ? 1 : -1;
+    }
+    return a.pattern.localeCompare(b.pattern);
+  });
+}
+
 export async function scanPages(root: string, options?: PageScanOptions): Promise<PageScanResult> {
   const pagesDir = options?.pagesDir ?? options?.paths?.pagesDir ?? readProjectPaths(root).pagesDir;
   if (!existsSync(pagesDir)) {
     return { pages: [], layouts: [], namedLayouts: [] };
   }
 
-  const pattern = `**/*.{${COMPONENT_EXTENSIONS.join(',')}}`;
+  // Preparation needs both configurations, with each format restricted to the
+  // environment where its plugin is enabled. Validate each route inventory on its own.
+  if (options?.extensions === undefined && options?.environment === undefined) {
+    const pages = new Map<string, PageDefinition>();
+    const layouts = new Map<string, LayoutDefinition>();
+    const namedLayouts = new Map<string, NamedLayoutDefinition>();
+    for (const environment of ['dev', 'prod'] as const) {
+      const extensions = await loadPageExtensions(root, environment);
+      const scan = await scanPages(root, { ...options, pagesDir, extensions, environment });
+      for (const page of scan.pages) {
+        const previous = pages.get(page.componentPath);
+        pages.set(page.componentPath, previous ? page : { ...page, env: page.env ?? environment });
+      }
+      for (const layout of scan.layouts) {
+        layouts.set(layout.filePath, layout);
+      }
+      for (const layout of scan.namedLayouts) {
+        namedLayouts.set(layout.filePath, layout);
+      }
+    }
+    return {
+      pages: sortPages([...pages.values()]),
+      layouts: [...layouts.values()],
+      namedLayouts: [...namedLayouts.values()],
+    };
+  }
+
+  const extensions = options?.extensions ?? (await loadPageExtensions(root, options?.environment));
+  if (extensions.length === 0) {
+    return { pages: [], layouts: [], namedLayouts: [] };
+  }
+  const pattern = extensions.map((extension) => `**/*.${extension}`);
   const files = await glob(pattern, { cwd: pagesDir, absolute: false });
 
   const pages: Array<PageDefinition> = [];
@@ -406,17 +460,7 @@ export async function scanPages(root: string, options?: PageScanOptions): Promis
   }
 
   // Sort: static before dynamic, catch-all last
-  pages.sort((a, b) => {
-    if (a.catchAll !== b.catchAll) {
-      return a.catchAll ? 1 : -1;
-    }
-    const aDynamic = a.pattern.includes(':');
-    const bDynamic = b.pattern.includes(':');
-    if (aDynamic !== bDynamic) {
-      return aDynamic ? 1 : -1;
-    }
-    return a.pattern.localeCompare(b.pattern);
-  });
+  sortPages(pages);
 
   if (options?.checkRoutes !== false) {
     // At most one page per route in each environment. A scan for every

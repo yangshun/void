@@ -91,7 +91,10 @@ export { mutate as "action" };
 };\n`,
       );
       writeFileSync(join(pages, 'index.tsx'), 'export default () => null;');
-      const { scan } = await analyzeApplication(directory, { config: readConfig(directory) });
+      const { scan } = await analyzeApplication(directory, {
+        config: readConfig(directory),
+        pageExtensions: ['tsx'],
+      });
       scan.pages.pages.push({
         pattern: '/client-only',
         params: [],

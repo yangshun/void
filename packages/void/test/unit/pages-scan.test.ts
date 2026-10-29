@@ -6,7 +6,7 @@ import { generateRouteTypes } from '../../src/codegen/route-types.ts';
 import { resolveLayoutIds } from '../../src/pages/layout-resolution.ts';
 import { generateComponentManifest } from '../../src/pages/manifest.ts';
 import {
-  scanPages,
+  scanPages as scanPagesWithExtensions,
   resolveLayoutChain,
   resolveNamedLayout,
   resolveEffectiveLayoutChain,
@@ -19,6 +19,16 @@ vi.mock('tinyglobby', { spy: true });
 vi.mock('../../src/shared/source-analysis-cache.ts', { spy: true });
 
 const TMP = join(import.meta.dirname, '__tmp_pages_scan__');
+
+function scanPages(
+  root: string,
+  options?: Parameters<typeof scanPagesWithExtensions>[1],
+): ReturnType<typeof scanPagesWithExtensions> {
+  return scanPagesWithExtensions(root, {
+    extensions: ['vue', 'tsx', 'jsx', 'svelte', 'md'],
+    ...options,
+  });
+}
 
 function writeFile(relativePath: string, content: string): void {
   const full = join(TMP, 'pages', relativePath);

@@ -96,6 +96,12 @@ function removeProjectFixture(): void {
 function makeProject(files: Record<string, string>): string {
   removeProjectFixture();
   mkdirSync(tmpDir, { recursive: true });
+  writeFileSync(
+    join(tmpDir, 'vite.config.mjs'),
+    `export default { plugins: [{ name: 'test:page-formats', api: {
+      voidPages: { extensions: ['tsx', 'jsx', 'vue', 'svelte', 'md'] },
+    } }] };`,
+  );
   for (const [rel, content] of Object.entries(files)) {
     const abs = join(tmpDir, rel);
     mkdirSync(dirname(abs), { recursive: true });

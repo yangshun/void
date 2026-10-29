@@ -5,6 +5,9 @@ import { pagesPlugin } from '../../src/plugin-pages.ts';
 
 const TMP = join(import.meta.dirname, '__tmp_pages_plugin__');
 const PAGES_DIR = join(TMP, 'pages');
+const MARKDOWN_CONFIG = {
+  plugins: [{ name: 'test:markdown', api: { voidPages: { extensions: ['md'] } } }],
+};
 
 type HookWithHandler<T> = { handler: T };
 type PagesPluginHooks = {
@@ -73,7 +76,9 @@ describe('pagesPlugin build config', () => {
     );
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(await getHookHandler(plugin.config)({}, { command: 'build' })).toBeUndefined();
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+    ).toBeUndefined();
   });
 
   it.each([
@@ -84,7 +89,7 @@ describe('pagesPlugin build config', () => {
     writePage(page, 'export default function Debug() { return <p>Debug</p>; }');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    const config = await getHookHandler(plugin.config)({}, { command: 'build' });
+    const config = await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
     if (included) {
       expect(config).toMatchObject({
         build: { rollupOptions: { input: { 'pages-client': 'virtual:void-pages-client' } } },
@@ -111,7 +116,7 @@ describe('pagesPlugin build config', () => {
       }
 
       const plugin = pagesPlugin(customPages, { root: TMP }) as PagesPluginHooks;
-      const config = await getHookHandler(plugin.config)({}, { command: 'build' });
+      const config = await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
       if (ordinary) {
         expect(config).toMatchObject({
           build: { rollupOptions: { input: { 'pages-client': 'virtual:void-pages-client' } } },
@@ -125,32 +130,36 @@ describe('pagesPlugin build config', () => {
   it('omits pages-client for Markdown pages', async () => {
     writePage('index.md', '# Home');
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(await getHookHandler(plugin.config)({}, { command: 'build' })).toBeUndefined();
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+    ).toBeUndefined();
   });
 
   it.each([
     ['other.vue', '<template><p>Other</p></template>'],
     ['other.svelte', '<p>Other</p>'],
-  ])('uses the scanner inventory for a non-island %s component', async (page, component) => {
+  ])('ignores a non-island %s component from another adapter', async (page, component) => {
     writePage(page, component);
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(await getHookHandler(plugin.config)({}, { command: 'build' })).toMatchObject({
-      build: { rollupOptions: { input: { 'pages-client': 'virtual:void-pages-client' } } },
-    });
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+    ).toBeUndefined();
   });
 
   it('returns no build config when the pages directory is missing', async () => {
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(await getHookHandler(plugin.config)({}, { command: 'build' })).toBeUndefined();
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+    ).toBeUndefined();
   });
 
   it('reports invalid production routes during build configuration', async () => {
     writePage('index.tsx', 'export default function Home() { return <h1>Home</h1>; }');
     writePage('index.jsx', 'export default function Duplicate() { return <h1>Duplicate</h1>; }');
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    await expect(getHookHandler(plugin.config)({}, { command: 'build' })).rejects.toThrow(
-      'Multiple page files resolve to the same route',
-    );
+    await expect(
+      getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+    ).rejects.toThrow('Multiple page files resolve to the same route');
   });
 
   it.each(['tsx', 'jsx'])(
@@ -160,7 +169,9 @@ describe('pagesPlugin build config', () => {
       writePage(`index.server.${extension}`, 'export const loader = () => ({ count: 0 });');
 
       const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-      expect(await getHookHandler(plugin.config)({}, { command: 'build' })).toBeUndefined();
+      expect(
+        await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+      ).toBeUndefined();
     },
   );
 
@@ -179,7 +190,9 @@ describe('pagesPlugin build config', () => {
     writePage(page, 'export default function About() { return <h1>About</h1>; }');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(await getHookHandler(plugin.config)({}, { command: 'build' })).toMatchObject({
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' }),
+    ).toMatchObject({
       build: {
         manifest: true,
         rollupOptions: { input: { 'pages-client': 'virtual:void-pages-client' } },
@@ -197,7 +210,7 @@ describe('pagesPlugin dev HMR', () => {
     writePage('index.tsx', 'export default function Index() { return <h1>Home</h1>; }\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    await getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const handlers = setupWatcher(plugin);
 
@@ -216,7 +229,7 @@ describe('pagesPlugin dev HMR', () => {
     writePage('index.tsx', 'export default function Index() { return <h1>Home</h1>; }\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    await getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const logError = vi.fn();
     const invalidateModule = vi.fn();
@@ -262,7 +275,7 @@ describe('pagesPlugin environment suffixes', () => {
     writePage('home.prod.tsx', 'export default function Page() { return <h1>Prod</h1>; }\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    await getHookHandler(plugin.config)({}, { command: 'build' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
     await getHookHandler(plugin.buildStart).call({});
     const load = getHookHandler(plugin.load);
 
@@ -281,7 +294,7 @@ describe('pagesPlugin environment suffixes', () => {
     writePage('home.prod.tsx', 'export default function Page() { return <h1>Prod</h1>; }\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    await getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const load = getHookHandler(plugin.load);
 
@@ -295,7 +308,9 @@ describe('pagesPlugin environment suffixes', () => {
 
   it('scans for dev when pages/ is created after the serve config', async () => {
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(await getHookHandler(plugin.config)({}, { command: 'serve' })).toBeUndefined();
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' }),
+    ).toBeUndefined();
 
     writePage('debug.dev.tsx', 'export default function Page() { return <h1>Debug</h1>; }\n');
     await getHookHandler(plugin.buildStart).call({});

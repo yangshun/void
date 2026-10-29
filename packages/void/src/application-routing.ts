@@ -6,8 +6,10 @@ export type CompleteApplicationAnalysis = ApplicationAnalysis & { scan: ScanResu
 /** Complete route/page analysis using the same resource and handler inventories. */
 export async function completeApplicationAnalysis(
   analysis: ApplicationAnalysis,
+  options: { pageExtensions?: ReadonlyArray<string> } = {},
 ): Promise<CompleteApplicationAnalysis> {
   const scan = await scanRoutes(analysis.root, {
+    pageExtensions: options.pageExtensions,
     output: analysis.config.output,
     paths: analysis.paths,
     // A framework app's pages/ follows that framework's rules, not Void Pages.
@@ -27,7 +29,11 @@ export async function completeApplicationAnalysis(
 
 export async function analyzeApplication(
   root: string,
-  options: Parameters<typeof analyzeApplicationSync>[1],
+  options: Parameters<typeof analyzeApplicationSync>[1] & {
+    pageExtensions?: ReadonlyArray<string>;
+  },
 ): Promise<CompleteApplicationAnalysis> {
-  return completeApplicationAnalysis(analyzeApplicationSync(root, options));
+  return completeApplicationAnalysis(analyzeApplicationSync(root, options), {
+    pageExtensions: options.pageExtensions,
+  });
 }

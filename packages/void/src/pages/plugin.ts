@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { dirname } from 'pathslash';
 import { normalizePath, type Plugin, type ResolvedConfig, type UserConfig } from 'vite';
+import { resolvePageExtensions } from './extensions.ts';
 import { scanPages } from './scan.ts';
 import {
   resolveStaticPageDataBuildOptions,
@@ -18,6 +19,7 @@ type PagesPluginContext = {
 
 type PagesPluginOptions = {
   name: string;
+  extensions: ReadonlyArray<string>;
   root?: string;
   generateRenderer: (scan: PageScanResult, isDev: boolean) => string;
   generateClient: (scan: PageScanResult, staticPageData: StaticPageDataBuildOptions) => string;
@@ -32,9 +34,10 @@ export function createPagesPlugin(pagesDir: string, options: PagesPluginOptions)
   const root = options.root ?? dirname(pagesDir);
   const normalizedPagesDir = normalizePath(pagesDir);
   let pendingRescan: Promise<void> | null = null;
+  let extensions = options.extensions;
   async function rescanPages(): Promise<void> {
     pageScan = existsSync(pagesDir)
-      ? await scanPages(root, { pagesDir, environment: isDev ? 'dev' : 'prod' })
+      ? await scanPages(root, { pagesDir, extensions, environment: isDev ? 'dev' : 'prod' })
       : null;
   }
 
@@ -47,6 +50,7 @@ export function createPagesPlugin(pagesDir: string, options: PagesPluginOptions)
 
   return {
     name: options.name,
+    api: { voidPages: { extensions: options.extensions } },
 
     async buildStart() {
       await runRescan();
@@ -131,9 +135,14 @@ export function createPagesPlugin(pagesDir: string, options: PagesPluginOptions)
       viteConfig = config;
     },
 
-    config(_, env) {
+    async config(config, env) {
       // Set before the early return: pages/ may be created after the server starts.
       isDev = env.command === 'serve';
+      extensions = await resolvePageExtensions(config.plugins ?? [], {
+        config,
+        environment: env,
+        extensions: options.extensions,
+      });
       if (!existsSync(pagesDir)) {
         return;
       }

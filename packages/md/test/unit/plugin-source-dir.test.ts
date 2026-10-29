@@ -35,6 +35,10 @@ function createPlugin(): Plugin {
 }
 
 describe('voidMarkdown sourceDir support', () => {
+  it('declares Markdown as a plugin-owned page format', () => {
+    expect(createPlugin().api.voidPages.extensions).toEqual(['md']);
+  });
+
   afterEach(() => {
     while (tempDirs.length > 0) {
       rmSync(tempDirs.pop()!, { recursive: true, force: true });

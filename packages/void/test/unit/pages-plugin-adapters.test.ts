@@ -22,6 +22,10 @@ function handler<T>(hook: Hook<T>): T {
   return typeof hook === 'object' && hook !== null && 'handler' in hook ? hook.handler : hook;
 }
 
+const MARKDOWN_CONFIG = {
+  plugins: [{ name: 'test:markdown', api: { voidPages: { extensions: ['md'] } } }],
+};
+
 const adapters = [
   { name: 'react', extension: 'tsx', create: reactPagesPlugin, scansBuild: true },
   { name: 'solid', extension: 'tsx', create: solidPagesPlugin, scansBuild: true },
@@ -63,11 +67,11 @@ describe.each(adapters)('$name Pages plugin contract', (adapter) => {
     ['island only', undefined, false, false],
     ['Markdown', 'about.md', false, false],
     ['ordinary page', 'about.$ext', true, true],
-    ['dev-only page', 'debug.dev.$ext', false, true],
-    ['private directory', '_private/helper.$ext', false, true],
-    ['layout-prefixed page', 'layout.extra.$ext', true, false],
-    ['island-like page name', 'feature.island.demo.$ext', true, false],
-    ['foreign component', 'other.$foreign', true, false],
+    ['dev-only page', 'debug.dev.$ext', false, false],
+    ['private directory', '_private/helper.$ext', false, false],
+    ['layout-prefixed page', 'layout.extra.$ext', true, true],
+    ['island-like page name', 'feature.island.demo.$ext', true, true],
+    ['foreign component', 'other.$foreign', false, false],
   ])('preserves client build selection for %s', async (_, file, scanned, filenames) => {
     const { plugin, write } = setup();
     write(`index.island.${adapter.extension}`);
@@ -79,7 +83,7 @@ describe.each(adapters)('$name Pages plugin contract', (adapter) => {
       );
     }
 
-    const config = await handler(plugin.config)({}, { command: 'build' });
+    const config = await handler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
     if (adapter.scansBuild ? scanned : filenames) {
       const clientConfig = {
         build: {
@@ -113,7 +117,7 @@ describe.each(adapters)('$name Pages plugin contract', (adapter) => {
 
   it('handles a missing directory and lazily scans pages created after config', async () => {
     const { plugin, write } = setup();
-    expect(await handler(plugin.config)({}, { command: 'serve' })).toBeUndefined();
+    expect(await handler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' })).toBeUndefined();
     expect(await handler(plugin.load)('\0virtual:void-pages-renderer')).toBe(
       "export function renderPage() { throw new Error('No pages found'); }",
     );
@@ -136,7 +140,7 @@ describe.each(adapters)('$name Pages plugin contract', (adapter) => {
     const publicDir = join(root!, 'custom-public');
     mkdirSync(publicDir);
     writeFileSync(join(publicDir, '_redirects'), '/old /new 302');
-    await handler(plugin.config)({}, { command: 'build' });
+    await handler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
     plugin.configResolved({ publicDir });
     await handler(plugin.buildStart)();
 
@@ -153,10 +157,42 @@ describe.each(adapters)('$name Pages plugin contract', (adapter) => {
     );
   });
 
+  it('ignores another framework’s pages and layouts, including duplicate route names', async () => {
+    const { plugin, write } = setup();
+    const foreign = adapter.name === 'vue' ? 'svelte' : 'vue';
+    write(`about.${adapter.extension}`);
+    write(`about.${foreign}`);
+    write(`foreign.${foreign}`);
+    write(`layout.${foreign}`);
+    await handler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
+    await handler(plugin.buildStart)();
+
+    for (const id of ['\0virtual:void-pages-renderer', '\0virtual:void-pages-client']) {
+      const code = await handler(plugin.load)(id);
+      expect(code).toContain(`about.${adapter.extension}`);
+      expect(code).not.toContain(`about.${foreign}`);
+      expect(code).not.toContain(`foreign.${foreign}`);
+      expect(code).not.toContain(`layout.${foreign}`);
+    }
+  });
+
+  it.each([false, true])('discovers Markdown only with its plugin, enabled=%s', async (enabled) => {
+    const { plugin, write } = setup();
+    write('index.md', '# Home');
+    await handler(plugin.config)(enabled ? MARKDOWN_CONFIG : {}, { command: 'serve' });
+    await handler(plugin.buildStart)();
+    const code = await handler(plugin.load)('\0virtual:void-pages-renderer');
+    if (enabled) {
+      expect(code).toContain('index.md');
+    } else {
+      expect(code).not.toContain('index.md');
+    }
+  });
+
   it('rescans structural and Markdown changes, invalidating both modules in every environment', async () => {
     const { plugin, pagesDir, write } = setup();
     write(`index.${adapter.extension}`);
-    await handler(plugin.config)({}, { command: 'serve' });
+    await handler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await handler(plugin.buildStart)();
     const events = new Map<string, (path: string) => Promise<void>>();
     const moduleIds = ['\0virtual:void-pages-renderer', '\0virtual:void-pages-client'];

@@ -11,7 +11,13 @@ const TMP = join(import.meta.dirname, '__tmp_scan_test__');
 
 async function scanRoutes(root: string, options?: { environment?: RouteEnvironment }) {
   const config = readConfig(root);
-  return (await analyzeApplication(root, { config, environment: options?.environment })).scan;
+  return (
+    await analyzeApplication(root, {
+      config,
+      environment: options?.environment,
+      pageExtensions: ['vue', 'tsx', 'jsx', 'svelte', 'md'],
+    })
+  ).scan;
 }
 
 function createFile(path: string, content = 'export const GET = () => {}') {

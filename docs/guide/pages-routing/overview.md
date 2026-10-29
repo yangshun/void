@@ -88,6 +88,8 @@ export default defineConfig({
 
 Each adapter includes its framework's Vite plugin. Pass framework plugin options via `voidReact({ react: { ... } })`, `voidVue({ vue: { ... } })`, `voidSvelte({ svelte: { ... } })`, or `voidSolid({ solid: { ... } })` if needed.
 
+The enabled plugins determine which files become pages: React and Solid use `.tsx` and `.jsx`, Vue uses `.vue`, and Svelte uses `.svelte`. Add the [Markdown plugin](./markdown.md) to enable `.md` pages.
+
 ## Directory Structure
 
 Pages can be flat files such as `about.vue` or directory-based routes such as `about/index.vue`. Both map to the same route:

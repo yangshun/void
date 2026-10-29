@@ -52,8 +52,8 @@ describe('loadVoidAuthConfig', () => {
   });
 
   // Vitest resolves the native `import()` itself; plain Node is what `void prepare` runs in.
-  // `void prepare` boots no Vite: it never evaluates vite.config, whose plugins write files
-  // when constructed. `@fields` comes from tsconfig `paths`, `@schema` from Void's own alias.
+  // Without a Pages directory, preparation does not evaluate Vite configuration.
+  // `@fields` comes from tsconfig `paths`, `@schema` from Void's own alias.
   it('resolves extensionless, tsconfig paths and @schema imports in void prepare without vite.config', () => {
     const root = createTempDir();
     mkdirSync(join(root, 'lib'));

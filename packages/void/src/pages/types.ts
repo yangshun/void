@@ -45,7 +45,7 @@ export type PageDefinition = {
   metadata?: { title?: string; description?: string };
   /** Named layout selection: "name", "!name", or false */
   layout?: string | false;
-  /** Environment from a `.dev` / `.prod` file suffix. Unset means both. */
+  /** Environment from a filename suffix or plugin format availability. Unset means both. */
   env?: RouteEnvironment;
 };
 

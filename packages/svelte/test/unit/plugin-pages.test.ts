@@ -5,6 +5,9 @@ import { pagesPlugin } from '../../src/plugin-pages.ts';
 
 const TMP = join(import.meta.dirname, '__tmp_pages_plugin__');
 const PAGES_DIR = join(TMP, 'pages');
+const MARKDOWN_CONFIG = {
+  plugins: [{ name: 'test:markdown', api: { voidPages: { extensions: ['md'] } } }],
+};
 
 type HookWithHandler<T> = { handler: T };
 type PagesPluginHooks = {
@@ -63,7 +66,7 @@ describe('pagesPlugin dev HMR', () => {
     writePage('index.svelte', '<h1>Home</h1>\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const handlers = setupWatcher(plugin);
 
@@ -82,7 +85,7 @@ describe('pagesPlugin dev HMR', () => {
     writePage('index.svelte', '<h1>Home</h1>\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const logError = vi.fn();
     const invalidateModule = vi.fn();
@@ -115,11 +118,11 @@ describe('pagesPlugin dev HMR', () => {
     expect(recovered).toContain('"about"');
   });
 
-  it('excludes @void/svelte from the void worker optimizer in dev', () => {
+  it('excludes @void/svelte from the void worker optimizer in dev', async () => {
     writePage('index.svelte', '<h1>Home</h1>\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    const config = getHookHandler(plugin.config)({}, { command: 'serve' });
+    const config = await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
 
     expect(config).toMatchObject({
       optimizeDeps: {
@@ -149,7 +152,7 @@ describe('pagesPlugin environment suffixes', () => {
     writePage('home.prod.svelte', '<h1>Prod</h1>\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    getHookHandler(plugin.config)({}, { command: 'build' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'build' });
     await getHookHandler(plugin.buildStart).call({});
     const load = getHookHandler(plugin.load);
 
@@ -168,7 +171,7 @@ describe('pagesPlugin environment suffixes', () => {
     writePage('home.prod.svelte', '<h1>Prod</h1>\n');
 
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    getHookHandler(plugin.config)({}, { command: 'serve' });
+    await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' });
     await getHookHandler(plugin.buildStart).call({});
     const load = getHookHandler(plugin.load);
 
@@ -182,7 +185,9 @@ describe('pagesPlugin environment suffixes', () => {
 
   it('scans for dev when pages/ is created after the serve config', async () => {
     const plugin = pagesPlugin(PAGES_DIR) as PagesPluginHooks;
-    expect(getHookHandler(plugin.config)({}, { command: 'serve' })).toBeUndefined();
+    expect(
+      await getHookHandler(plugin.config)(MARKDOWN_CONFIG, { command: 'serve' }),
+    ).toBeUndefined();
 
     writePage('debug.dev.svelte', '<h1>Debug</h1>\n');
     await getHookHandler(plugin.buildStart).call({});

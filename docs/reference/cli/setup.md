@@ -85,3 +85,5 @@ void prepare
 ```
 
 Generates Void’s types and TypeScript configuration without starting the dev server or building the app. Run it after a fresh clone or before typechecking in CI.
+
+For Pages apps, the command evaluates the Vite configuration to discover the page formats enabled by its plugins.

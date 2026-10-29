@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, relative } from 'pathslash';
 import { normalizePath, type Plugin, type ResolvedConfig } from 'vite';
 import { generateComponentManifest, scanPages, resolveEffectiveLayoutChain } from 'void/pages';
+import { resolvePageExtensions } from 'void/pages';
 import type { PageScanResult } from 'void/pages';
 import {
   resolveSpecifier,
@@ -20,6 +21,7 @@ import {
   type IslandSourceEdit,
 } from 'void/pages-islands-plugin';
 import type { IslandEntry } from 'void/pages-islands-plugin';
+import { PAGE_EXTENSIONS } from './plugin-pages.ts';
 
 const COMPONENT_EXTENSIONS = ['.vue', '.tsx', '.jsx', '.ts', '.js'];
 type MdPluginWithApi = Plugin & {
@@ -34,6 +36,7 @@ export function islandsPlugin(
   options?: { root?: string },
 ): ReadonlyArray<Plugin> {
   let pageScan: PageScanResult | null = null;
+  let pageExtensions: ReadonlyArray<string> = PAGE_EXTENSIONS;
   const root = options?.root ?? dirname(pagesDir);
   const islandManifest = new Map<string, IslandEntry>();
   const islandCssFiles = new Set<string>();
@@ -65,15 +68,22 @@ export function islandsPlugin(
       },
 
       configureServer(server) {
-        watchPagesForRescan(server, pagesDir, root, (scan: PageScanResult) => {
-          pageScan = scan;
-        });
+        watchPagesForRescan(
+          server,
+          pagesDir,
+          root,
+          (scan: PageScanResult) => {
+            pageScan = scan;
+          },
+          pageExtensions,
+        );
       },
 
       async buildStart() {
         if (existsSync(pagesDir)) {
           pageScan = await scanPages(root, {
             pagesDir,
+            extensions: pageExtensions,
             environment: isDev ? 'dev' : 'prod',
           });
           // Pre-scan island pages to populate the manifest eagerly.
@@ -253,14 +263,19 @@ export function islandsPlugin(
         },
       },
 
-      async config(_, env) {
+      async config(config, env) {
+        pageExtensions = await resolvePageExtensions(config.plugins ?? [], {
+          config,
+          environment: env,
+          extensions: PAGE_EXTENSIONS,
+        });
         if (!existsSync(pagesDir)) {
           return;
         }
         if (env.command === 'serve') {
           return { optimizeDeps: { include: ['vue'] } };
         }
-        if (await hasIslandPages(root, pagesDir)) {
+        if (await hasIslandPages(root, pagesDir, pageExtensions)) {
           return {
             environments: {
               client: {

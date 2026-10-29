@@ -3,6 +3,8 @@ import type { Plugin } from 'vite';
 import { createPagesPlugin, generateComponentManifest } from 'void/pages';
 import type { PageScanResult, StaticPageDataBuildOptions } from 'void/pages';
 
+export const PAGE_EXTENSIONS: ReadonlyArray<string> = ['tsx', 'jsx'];
+
 const CLIENT_ENTRY_ID = 'virtual:void-pages-client';
 const WORKER_ENVIRONMENT_NAME = 'void_worker';
 const REACT_DEDUPE = ['react', 'react-dom'];
@@ -37,6 +39,7 @@ export function pagesPlugin(pagesDir: string, options?: PagesPluginOptions): Plu
   const pagesOptimizeEntries = `${relative(root, pagesDir)}/**/*.{js,jsx,ts,tsx}`;
   return createPagesPlugin(pagesDir, {
     name: 'void-react:pages',
+    extensions: PAGE_EXTENSIONS,
     root,
     generateRenderer(scan, isDev) {
       return generateRendererModule(scan, pagesDir, isDev);

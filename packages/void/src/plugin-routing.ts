@@ -39,6 +39,7 @@ import { generateRouteTypes } from './codegen/route-types.ts';
 import { writeFileIfChanged } from './codegen/write-if-changed.ts';
 import { readConfig, getDatabaseDialect } from './config.ts';
 import { collectPages, collectRevalidate, hasRevalidate } from './isr-config.ts';
+import { resolvePageExtensions } from './pages/extensions.ts';
 import { readProjectPaths } from './project-paths.ts';
 import { readDeployBuildQueueNames } from './queues/cloudflare-names.ts';
 import {
@@ -202,7 +203,10 @@ export function routingPlugin(root: string, options: RoutingPluginOptions): Plug
 
   async function rescan(refresh = false) {
     const analysis = options.getApplicationAnalysis(routeEnvironment, refresh);
-    const nextScan = (await completeApplicationAnalysis(analysis)).scan;
+    const pageExtensions = resolvedConfig
+      ? await resolvePageExtensions(resolvedConfig.plugins)
+      : undefined;
+    const nextScan = (await completeApplicationAnalysis(analysis, { pageExtensions })).scan;
     const entries = validateSsrEntries(root, paths);
     scan = nextScan;
     authConfigPath = analysis.authConfigPath;

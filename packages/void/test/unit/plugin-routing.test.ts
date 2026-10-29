@@ -29,6 +29,10 @@ import { readProjectPaths } from '../../src/project-paths.ts';
 import { getHookHandler } from '../helpers/vite-hooks.ts';
 
 const tempDirs: Array<string> = [];
+const PAGE_FORMAT_PLUGIN = {
+  name: 'test:page-formats',
+  api: { voidPages: { extensions: ['tsx', 'jsx', 'md'] } },
+};
 
 function createTempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'void-routing-'));
@@ -70,7 +74,7 @@ function resolveConfig(
     build: { assetsDir: 'assets' },
     command,
     mode: command === 'build' ? 'production' : 'development',
-    plugins,
+    plugins: [PAGE_FORMAT_PLUGIN, ...plugins],
   } as unknown as ResolvedConfig);
 }
 
@@ -202,7 +206,7 @@ describe('routingPlugin', () => {
       build: { assetsDir: 'assets' },
       command: 'build',
       mode: 'production',
-      plugins: [],
+      plugins: [PAGE_FORMAT_PLUGIN],
       root,
       resolve: { alias: [{ find: '@fields', replacement: join(root, 'fields') }] },
     } as unknown as ResolvedConfig);
@@ -1138,7 +1142,7 @@ describe('routingPlugin native asset Worker bypass', () => {
       publicDir: join(root, 'public'),
       command: 'build',
       mode: 'production',
-      plugins: [],
+      plugins: [PAGE_FORMAT_PLUGIN],
     } as unknown as ResolvedConfig);
     await runBuildStart(plugin);
     const environment = {

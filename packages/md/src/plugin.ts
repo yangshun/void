@@ -150,6 +150,7 @@ export function voidMarkdown(options?: MarkdownOptions): Array<Plugin> {
       enforce: 'pre',
 
       api: {
+        voidPages: { extensions: ['md'] },
         clientEntryId: MD_CLIENT_ENTRY_ID,
         getClientScripts(): Map<string, string> {
           return clientScripts;

@@ -76,12 +76,14 @@ export async function scanRoutes(
     paths: ProjectPaths;
     inventory: Omit<ScanResult, 'pages'>;
     checkPageRoutes?: boolean;
+    pageExtensions?: ReadonlyArray<string>;
     /** Keep only pages for this environment. Unset keeps every page. */
     environment?: RouteEnvironment;
   },
 ): Promise<ScanResult> {
   const { paths, inventory } = options;
   const pages = await scanPages(root, {
+    extensions: options.pageExtensions,
     output: options.output,
     paths,
     checkRoutes: options.checkPageRoutes,

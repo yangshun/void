@@ -15,6 +15,8 @@ export { resolveHead, renderHeadToString, renderHtmlAttrs, renderBodyAttrs } fro
 export type { HeadDescriptor, HeadConfig } from './head.ts';
 export { generateComponentManifest } from './manifest.ts';
 export { createPagesPlugin } from './plugin.ts';
+export { resolvePageExtensions } from './extensions.ts';
+export type { PagesPluginApi } from './extensions.ts';
 export { resolveStaticPageDataBuildOptions } from './static-data.ts';
 export type { StaticPageDataBuildOptions } from './static-data.ts';
 export { serializePageData } from './serialize.ts';
