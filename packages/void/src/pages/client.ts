@@ -64,6 +64,20 @@ export type NavigationState = {
   method: NavigationMethod | null;
 };
 
+// Keep Link props as one object shape so wrappers can Omit and forward them.
+// `resolveLinkHref` rejects `data` with object hrefs at runtime.
+export type LinkHrefProps = { href: RouteUrlInput; data?: Record<string, unknown> };
+
+/** @internal String hrefs retain their legacy GET query and mutation body data. */
+export function resolveLinkHref(href: RouteUrlInput, data?: Record<string, unknown>): string {
+  if (typeof href !== 'string' && data !== undefined) {
+    throw new TypeError(
+      'Link: data is only supported with a string href. Put query values in href.query.',
+    );
+  }
+  return toUrlString(href);
+}
+
 export type VoidRouter = {
   _hoverDelay: number;
   readonly url: URL;

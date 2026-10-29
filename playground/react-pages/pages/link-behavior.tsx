@@ -12,6 +12,7 @@ type LinkBehaviorWindow = Window & {
 };
 
 export default function LinkBehaviorPage({ title }: Props) {
+  const [typedUserId, setTypedUserId] = useState('1');
   const [abortTestStatus, setAbortTestStatus] = useState('Not run');
 
   useEffect(() => {
@@ -80,6 +81,21 @@ export default function LinkBehaviorPage({ title }: Props) {
     <div>
       <h1>{title}</h1>
       <p>
+        <button data-testid="typed-update" onClick={() => setTypedUserId('2')}>
+          Change typed user
+        </button>
+        <Link
+          href={{
+            pathname: '/users/:id',
+            params: { id: typedUserId },
+            query: { tab: 'activity' },
+            hash: 'details',
+          }}
+          prefetch
+          data-testid="typed-link"
+        >
+          Typed user
+        </Link>
         <button
           data-testid="typed-visit"
           onClick={() =>

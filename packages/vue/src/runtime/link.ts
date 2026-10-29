@@ -1,9 +1,12 @@
 import {
   isModifiedEvent,
   mergeDataIntoHref,
+  resolveLinkHref,
+  type LinkHrefProps,
   type PrefetchOptions,
   type VoidRouter,
 } from 'void/pages-client';
+import type { RouteUrlInput } from 'void/routes';
 import {
   computed,
   defineComponent,
@@ -12,13 +15,32 @@ import {
   onMounted,
   onUnmounted,
   ref,
-  type Component,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type DefineSetupFnComponent,
   type PropType,
 } from 'vue';
 
 type PrefetchStrategy = 'hover' | 'click' | 'mount' | 'visible';
 type LinkMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type NavigateEvent = { preventDefault(): void };
+
+type CommonProps = {
+  method?: LinkMethod | Lowercase<LinkMethod>;
+  preserveScroll?: boolean;
+  preserveState?: boolean;
+  replace?: boolean;
+  reloadDocument?: boolean;
+  viewTransition?: boolean;
+  onNavigate?: (event: NavigateEvent) => void;
+  prefetch?: boolean | PrefetchStrategy | ReadonlyArray<PrefetchStrategy>;
+  cacheFor?: number | string | [string, string];
+};
+
+export type LinkProps = CommonProps &
+  LinkHrefProps &
+  Omit<AnchorHTMLAttributes, keyof CommonProps | keyof LinkHrefProps> &
+  Omit<ButtonHTMLAttributes, keyof CommonProps | keyof LinkHrefProps>;
 
 function callHandler(handler: unknown, event: Event): void {
   if (Array.isArray(handler)) {
@@ -32,10 +54,10 @@ function callHandler(handler: unknown, event: Event): void {
   }
 }
 
-export const Link: Component = defineComponent({
+export const Link: DefineSetupFnComponent<LinkProps> = defineComponent({
   name: 'Link',
   props: {
-    href: { type: String, required: true },
+    href: { type: [String, Object] as PropType<RouteUrlInput>, required: true },
     method: { type: String, default: 'GET' },
     data: { type: Object, default: undefined },
     preserveScroll: { type: Boolean, default: false },
@@ -60,9 +82,10 @@ export const Link: Component = defineComponent({
     const elRef = ref<HTMLElement | null>(null);
     const normalizedMethod = computed(() => props.method.toUpperCase() as LinkMethod);
     const isGet = computed(() => normalizedMethod.value === 'GET');
-    const hrefWithData = computed(() =>
-      isGet.value ? mergeDataIntoHref(props.href, props.data) : props.href,
-    );
+    const hrefWithData = computed(() => {
+      const href = resolveLinkHref(props.href, props.data);
+      return isGet.value ? mergeDataIntoHref(href, props.data) : href;
+    });
     const strategies = computed<ReadonlyArray<PrefetchStrategy>>(() => {
       if (props.prefetch === false || props.reloadDocument) {
         return [];
@@ -234,4 +257,4 @@ export const Link: Component = defineComponent({
       );
     };
   },
-});
+}) as unknown as DefineSetupFnComponent<LinkProps>;

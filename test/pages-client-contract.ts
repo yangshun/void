@@ -98,9 +98,33 @@ export function registerSharedClientTests({
     BASE = getBase();
   });
 
-  it('visits typed destinations', async ({ expect }) => {
+  it('renders reactive typed links, prefetches them and visits typed destinations', async ({
+    expect,
+  }) => {
     const page = await newPage();
     try {
+      const ssr = await page.request.get(BASE + '/link-behavior');
+      expect(await ssr.text()).toContain('href="/users/1?tab=activity#details"');
+      await page.goto(BASE + '/link-behavior');
+      await waitForHydration(page);
+      const link = page.getByTestId('typed-link');
+      expect(await link.getAttribute('href')).toBe('/users/1?tab=activity#details');
+      await page.getByTestId('typed-update').click();
+      await expect.poll(() => link.getAttribute('href')).toBe('/users/2?tab=activity#details');
+      const prefetched = page.waitForResponse(
+        (response) =>
+          response.url() === BASE + '/users/2?tab=activity' &&
+          response.request().headers()['purpose'] === 'prefetch',
+      );
+      await link.hover();
+      expect((await prefetched).status()).toBe(200);
+      await page.evaluate(() => {
+        (window as TestWindow).__SPA_MARKER = true;
+      });
+      await link.click();
+      await page.waitForURL(BASE + '/users/2?tab=activity#details');
+      expect(await page.textContent('body')).toContain('Bob');
+      expect(await page.evaluate(() => (window as TestWindow).__SPA_MARKER)).toBe(true);
       await page.goto(BASE + '/link-behavior');
       await waitForHydration(page);
       await page.evaluate(() => {

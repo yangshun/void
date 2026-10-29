@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { routeUrl, type RouteDestination, type RouteUrlInput } from 'void/routes';
-import type { VoidRouter } from '../../src/pages/client.ts';
+import type { LinkHrefProps, VoidRouter } from '../../src/pages/client.ts';
 import {
   defineHandler,
   defineMiddleware,
@@ -55,6 +55,13 @@ export function checkTypedNavigation(router: VoidRouter): void {
   router.flush(target);
   void router.visit('../relative');
   void router.prefetch(new URL('https://example.com'));
+  const legacy: LinkHrefProps = { href: '/unknown?tab=one', data: { tab: 'two' } };
+  const href: RouteUrlInput = Math.random() < 0.5 ? target : '/typed-navigation';
+  const typed: LinkHrefProps = { href };
+  const typedWithData: LinkHrefProps = { href: target, data: { tab: 'two' } };
+  void legacy;
+  void typed;
+  void typedWithData;
   // @ts-expect-error dynamic destinations require params
   void router.visit({ pathname: '/typed-navigation/:id' });
   // @ts-expect-error unknown patterns are not accepted in typed destinations

@@ -8,7 +8,12 @@ import type {
   CSSProperties,
   RefObject,
 } from 'react';
-import { isModifiedEvent, mergeDataIntoHref } from 'void/pages-client';
+import {
+  isModifiedEvent,
+  mergeDataIntoHref,
+  resolveLinkHref,
+  type LinkHrefProps,
+} from 'void/pages-client';
 import { RouterContext } from './context.ts';
 
 type PrefetchStrategy = 'hover' | 'click' | 'mount' | 'visible';
@@ -16,9 +21,7 @@ type LinkMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type PrefetchOptions = { cacheFor?: LinkProps['cacheFor'] };
 
 type CommonProps = {
-  href: string;
   method?: LinkMethod | Lowercase<LinkMethod>;
-  data?: Record<string, unknown>;
   preserveScroll?: boolean;
   preserveState?: boolean;
   replace?: boolean;
@@ -30,8 +33,9 @@ type CommonProps = {
 };
 
 export type LinkProps = CommonProps &
-  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof CommonProps> &
-  Omit<ButtonHTMLAttributes<HTMLButtonElement>, keyof CommonProps>;
+  LinkHrefProps &
+  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof CommonProps | keyof LinkHrefProps> &
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, keyof CommonProps | keyof LinkHrefProps>;
 
 export function Link({
   href,
@@ -60,10 +64,10 @@ export function Link({
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const normalizedMethod = useMemo(() => method.toUpperCase() as LinkMethod, [method]);
   const isGet = normalizedMethod === 'GET';
-  const hrefWithData = useMemo(
-    () => (isGet ? mergeDataIntoHref(href, data) : href),
-    [data, href, isGet],
-  );
+  const hrefWithData = useMemo(() => {
+    const url = resolveLinkHref(href, data);
+    return isGet ? mergeDataIntoHref(url, data) : url;
+  }, [data, href, isGet]);
   const strategies = useMemo<ReadonlyArray<PrefetchStrategy>>(() => {
     if (prefetchProp === false || reloadDocument) {
       return [];

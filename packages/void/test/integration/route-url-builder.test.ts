@@ -37,10 +37,11 @@ async function createFixture() {
     'check.ts': `import {
   routeUrl,
   type RouteDestination,
+  type RouteUrlInput,
   type RouteOptions,
   type RoutePath,
 } from 'void/routes';
-import type { VoidRouter } from 'void/pages-client';
+import type { LinkHrefProps, VoidRouter } from 'void/pages-client';
 import { defineHandler, defineMiddleware, type CloudContext } from 'void/handler';
 const path: RoutePath = '/users/:id';
 const options: RouteOptions<typeof path> = { params: { id: 123 }, query: { tab: 'activity' }, hash: 'details' };
@@ -67,12 +68,20 @@ routeUrl('/files/:path{.+}');
 routeUrl('/wild/*');
 void url;
 const destination: RouteDestination = { pathname: '/users/:id', params: { id: 123 }, query: { tab: 'activity' } };
+const typedLink: LinkHrefProps = { href: destination };
+const legacyLink: LinkHrefProps = { href: '/users/123', data: { tab: 'activity' } };
+// Object href/data combinations are validated at runtime so wrappers can forward props.
+const objectLinkWithData: LinkHrefProps = { href: destination, data: {} };
+declare const href: RouteUrlInput;
+const unionLink: LinkHrefProps = { href };
+const forwardLinkProps = (props: Omit<LinkHrefProps, 'data'>): LinkHrefProps => props;
 declare const router: VoidRouter;
 void router.visit(destination);
 void router.prefetch(destination);
 router.flush(destination);
 // @ts-expect-error destinations require path params
 void router.visit({ pathname: '/users/:id' });
+void typedLink; void legacyLink; void objectLinkWithData; void unionLink; void forwardLinkProps;
 declare const honoContext: Parameters<ReturnType<typeof defineMiddleware>>[0];
 const context: CloudContext = honoContext;
 const response: Response & { _status: 307 } = context.redirect(url, 307);

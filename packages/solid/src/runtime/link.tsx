@@ -1,6 +1,11 @@
 import { createMemo, onCleanup, onMount, splitProps, useContext } from 'solid-js';
 import type { JSX } from 'solid-js';
-import { isModifiedEvent, mergeDataIntoHref } from 'void/pages-client';
+import {
+  isModifiedEvent,
+  mergeDataIntoHref,
+  resolveLinkHref,
+  type LinkHrefProps,
+} from 'void/pages-client';
 import { RouterContext } from './context.ts';
 
 type PrefetchStrategy = 'hover' | 'click' | 'mount' | 'visible';
@@ -9,9 +14,7 @@ type NavigateEvent = { preventDefault(): void };
 type PrefetchOptions = { cacheFor?: LinkProps['cacheFor'] };
 
 type CommonProps = {
-  href: string;
   method?: LinkMethod | Lowercase<LinkMethod>;
-  data?: Record<string, unknown>;
   preserveScroll?: boolean;
   preserveState?: boolean;
   replace?: boolean;
@@ -24,8 +27,9 @@ type CommonProps = {
 };
 
 export type LinkProps = CommonProps &
-  Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, keyof CommonProps> &
-  Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, keyof CommonProps>;
+  LinkHrefProps &
+  Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, keyof CommonProps | keyof LinkHrefProps> &
+  Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, keyof CommonProps | keyof LinkHrefProps>;
 
 function mergeStyle(style: JSX.CSSProperties | string | undefined): JSX.CSSProperties | string {
   if (typeof style === 'string') {
@@ -85,8 +89,9 @@ export function Link(props: LinkProps): JSX.Element {
       throw new Error('Link: reloadDocument only supports GET links.');
     }
 
+    const href = resolveLinkHref(local.href, local.data);
     return {
-      href: isGet ? mergeDataIntoHref(local.href, local.data) : local.href,
+      href: isGet ? mergeDataIntoHref(href, local.data) : href,
       isGet,
       method,
     };
