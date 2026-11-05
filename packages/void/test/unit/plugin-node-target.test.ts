@@ -99,3 +99,49 @@ describe('nodeTargetPlugin request bridge', () => {
     expect(response.headers.getSetCookie()).toEqual(['session=abc; Path=/', 'csrf=xyz; Path=/']);
   });
 });
+
+function guardPlugin(target: Parameters<typeof nodeTargetPlugin>[0]): Plugin {
+  const plugin = nodeTargetPlugin(target).find((p) => p.name === 'void:node-target');
+  if (!plugin) {
+    throw new Error('Expected the node target guard plugin.');
+  }
+  return plugin;
+}
+
+type BuildConfig = {
+  ssr: { noExternal: unknown };
+  build?: { ssr?: boolean; rollupOptions?: { input: Record<string, string>; external: unknown } };
+};
+
+function buildConfig(target: Parameters<typeof nodeTargetPlugin>[0]): BuildConfig {
+  const root = mkdtempSync(join(tmpdir(), 'void-node-target-'));
+  tempDirs.push(root);
+  writeFileSync(join(root, 'package.json'), '{ "name": "app" }');
+  vi.spyOn(process, 'cwd').mockReturnValue(root);
+  const config = getHookHandler(guardPlugin(target).config)!;
+  return config.call({} as never, {}, { command: 'build', mode: 'production' }) as BuildConfig;
+}
+
+describe('nodeTargetPlugin for Vercel', () => {
+  it('rejects void/queues, which Vercel cannot deliver', () => {
+    const resolveId = guardPlugin('vercel').resolveId as { filter: { id: RegExp } };
+    expect(resolveId.filter.id.test('void/queues')).toBe(true);
+    expect(resolveId.filter.id.test('void/db')).toBe(true);
+    expect(
+      (guardPlugin('node').resolveId as { filter: { id: RegExp } }).filter.id.test('void/queues'),
+    ).toBe(false);
+  });
+
+  it('bundles every dependency into a single function entry', () => {
+    const config = buildConfig('vercel');
+    expect(config.ssr.noExternal).toBe(true);
+    expect(Object.keys(config.build!.rollupOptions!.input)).toEqual(['app']);
+    expect(config.build!.rollupOptions!.external).toEqual([/^node:/]);
+  });
+
+  it('keeps the Node server entry and its external server package for target node', () => {
+    const config = buildConfig('node');
+    expect(Array.isArray(config.ssr.noExternal)).toBe(true);
+    expect(Object.keys(config.build!.rollupOptions!.input)).toEqual(['app', 'index']);
+  });
+});

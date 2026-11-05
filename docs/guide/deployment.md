@@ -108,7 +108,11 @@ Cloudflare logs use a live tail; team platforms retain log history. Before rolli
 
 ## Other runtimes
 
-Build a standalone server for [Node.js, Bun, or Deno](../integrations/nodejs-bun-deno.md) using the `target` setting. Deploy `dist/ssr` and `dist/client` together using your own hosting. Cloudflare bindings such as D1, KV, R2, and Workers AI are unavailable on these targets.
+Build a standalone server for [Node.js, Bun, or Deno](../integrations/nodejs-bun-deno.md) using the `target` setting. Deploy `dist/ssr` and `dist/client` together using your own hosting.
+
+To deploy on [Vercel](../integrations/vercel.md), set `target: "vercel"`. The build writes Vercel's Build Output, which Vercel deploys from your repository or with `vercel deploy --prebuilt`.
+
+Cloudflare bindings such as D1, KV, R2, and Workers AI are unavailable on these targets.
 
 ## Usage and execution limit pages
 

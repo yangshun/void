@@ -947,6 +947,31 @@ describe('detectFramework', () => {
     });
   }
 
+  it('rejects queue consumers with target: "vercel"', () => {
+    const root = createTempRoot();
+    mkdirSync(join(root, 'routes'), { recursive: true });
+    mkdirSync(join(root, 'queues'), { recursive: true });
+    writeFileSync(join(root, 'void.json'), JSON.stringify({ target: 'vercel' }));
+    writeFileSync(join(root, 'routes', 'index.ts'), 'export const GET = () => new Response("ok");');
+    writeFileSync(
+      join(root, 'queues', 'emails.ts'),
+      `
+      import { defineQueue } from "void";
+      export default defineQueue(async () => {});
+      `,
+    );
+
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+    try {
+      expect(() => voidPlugin()).toThrow(
+        `queues: queue consumers (queues/) require target: "cloudflare". They are not available with target: 'vercel'.`,
+      );
+    } finally {
+      cwd.mockRestore();
+    }
+  });
+
   it('still builds a non-Cloudflare target without an email/ directory', () => {
     const root = createTempRoot();
     mkdirSync(join(root, 'routes'), { recursive: true });

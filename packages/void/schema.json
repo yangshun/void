@@ -15,8 +15,8 @@
     },
     "target": {
       "type": "string",
-      "enum": ["cloudflare", "node", "bun", "deno"],
-      "description": "Deploy target runtime. Defaults to \"cloudflare\". Non-CF targets disable bindings (D1, KV, R2, AI) and produce a plain Hono app."
+      "enum": ["cloudflare", "node", "bun", "deno", "vercel"],
+      "description": "Deploy target runtime. Defaults to \"cloudflare\". Non-CF targets disable bindings (D1, KV, R2, AI) and produce a plain Hono app. \"vercel\" also writes Vercel's Build Output API to .vercel/output."
     },
     "output": {
       "type": "string",
@@ -377,6 +377,31 @@
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "vercel": {
+      "type": "object",
+      "description": "Vercel Function settings for target: \"vercel\".",
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": ["nodejs22.x", "nodejs24.x", "nodejs26.x"],
+          "description": "Node.js runtime. Defaults to the building Node.js major when Vercel offers it, otherwise nodejs24.x."
+        },
+        "regions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z]+\\d+$" },
+          "minItems": 1,
+          "description": "Vercel region ids the function runs in, such as iad1."
+        },
+        "maxDuration": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "enum": ["max"] }
+          ],
+          "description": "Maximum duration in seconds, or \"max\" for the plan's limit."
         }
       },
       "additionalProperties": false

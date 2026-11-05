@@ -49,6 +49,7 @@ import {
   compileWorkerClient,
   compileNodeApp,
   compileNodeServer,
+  compileVercelApp,
   type CompileOptions,
   type SsrCompileOptions,
   type PagesCompileOptions,
@@ -93,7 +94,9 @@ type RoutingPluginOptions = {
   prerenderPaths?: Array<string>;
   remoteMode?: boolean;
   bindingNames?: { d1?: string; kv?: string; r2?: string };
-  target?: 'node' | 'bun' | 'deno';
+  target?: 'node' | 'bun' | 'deno' | 'vercel';
+  /** Vercel Function settings for `target: 'vercel'`. */
+  vercel?: import('./config.ts').VercelTargetConfig;
   /** Merged with `_redirects` / `_headers` under Vite's `publicDir`; config rules take precedence. */
   routing?: import('./config.ts').RoutingConfig;
   hasSandbox?: boolean;
@@ -128,7 +131,10 @@ export function routingPlugin(
   root: string,
   options: RoutingPluginOptions,
 ): Plugin & {
-  api: { finalizeCloudflareAssets(clientDir: string, assetsDir: string): void };
+  api: {
+    finalizeCloudflareAssets(clientDir: string, assetsDir: string): void;
+    finalizeVercelOutput(): Promise<void>;
+  };
 } {
   let scan: ScanResult | null = null;
   let routeEnvironment: RouteEnvironment = 'prod';
@@ -280,6 +286,7 @@ export function routingPlugin(
     devTriggerToken: options.devTriggerToken,
     auth: null,
     nodeTarget: !!options.target,
+    executionContext: options.target === 'vercel',
     managedDispatch: false,
     explicitPrerenderPaths: options.prerenderPaths,
     bindingHandlerPath: options.target ? undefined : resolveFile('#self/remote/binding-handler'),
@@ -332,7 +339,11 @@ export function routingPlugin(
     const files = [
       'routes.d.ts',
       'queues.d.ts',
-      ...(options.target ? ['app.ts', 'index.ts'] : ['entry.ts']),
+      ...(options.target === 'vercel'
+        ? ['app.ts']
+        : options.target
+          ? ['app.ts', 'index.ts']
+          : ['entry.ts']),
       ...(compileOptions.auth
         ? [
             'better-auth-db.ts',
@@ -616,6 +627,40 @@ export function routingPlugin(
     }
   }
 
+  // nodeTargetPlugin calls this once the server and client builds and
+  // prerendering are done, from the instance that saw the client bundle.
+  async function finalizeVercelOutput(): Promise<void> {
+    if (options.target !== 'vercel' || resolvedConfig?.command !== 'build' || !scan) {
+      return;
+    }
+    const { writeVercelBuildOutput } = await import('./vercel-output.ts');
+    const { pages } = scan.pages;
+    // As for the Cloudflare asset bypass: a page needs the server unless its
+    // prerendered file answers every request (no actions, params or SSR-only).
+    const needsServer = (page: (typeof pages)[number]) =>
+      page.serverPath !== null || !page.shouldPrerender || page.params.length > 0 || page.catchAll;
+    await writeVercelBuildOutput({
+      root,
+      assetsDir: resolvedConfig.build.assetsDir,
+      redirectRules: compileOptions.redirectRules ?? [],
+      fallbackRules: compileOptions.fallbackRules ?? [],
+      headerRules: compileOptions.headerRules ?? [],
+      immutableFiles: clientImmutableFiles,
+      routePatterns: [
+        ...scan.routes.map((route) => route.pattern),
+        ...pages.map((page) => page.pattern),
+      ],
+      cronSchedules: scan.jobs.flatMap((job) => job.crons),
+      hasServer:
+        output !== 'static' ||
+        ssr !== null ||
+        scan.routes.length > 0 ||
+        scan.jobs.length > 0 ||
+        pages.some(needsServer),
+      vercel: options.vercel,
+    });
+  }
+
   const sandboxEntry = options.hasSandbox
     ? {
         bindingName: options.sandboxBindingName,
@@ -626,6 +671,13 @@ export function routingPlugin(
     : false;
 
   function writeNodeEntries(target: NonNullable<RoutingPluginOptions['target']>): void {
+    if (target === 'vercel') {
+      writeFileIfChanged(
+        join(outDir, 'app.ts'),
+        compileVercelApp(getEnvSchemaModule(), resolvedConfig?.build.assetsDir),
+      );
+      return;
+    }
     writeFileIfChanged(
       join(outDir, 'app.ts'),
       compileNodeApp(target, compileOptions.honoPath, getEnvSchemaModule()),
@@ -696,7 +748,7 @@ export function routingPlugin(
 
   return {
     name: 'void:routing',
-    api: { finalizeCloudflareAssets },
+    api: { finalizeCloudflareAssets, finalizeVercelOutput },
     enforce: 'pre',
     configResolved(config) {
       resolvedConfig = config;

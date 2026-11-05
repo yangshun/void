@@ -58,7 +58,7 @@ describe('routing.alwaysUseHttps', () => {
       cleanup();
     }
   });
-  it.each(['node', 'bun', 'deno'])('rejects true with target %s', (target) => {
+  it.each(['node', 'bun', 'deno', 'vercel'])('rejects true with target %s', (target) => {
     setup(JSON.stringify({ target, routing: { alwaysUseHttps: true } }));
     try {
       expect(() => readConfig(tmpDir)).toThrow(
@@ -731,12 +731,76 @@ describe('readConfig target', () => {
     cleanup();
   });
 
-  it('isNodeTarget recognizes node, bun and deno', () => {
+  it('isNodeTarget recognizes node, bun, deno and vercel', () => {
     expect(isNodeTarget('node')).toBe(true);
     expect(isNodeTarget('bun')).toBe(true);
     expect(isNodeTarget('deno')).toBe(true);
+    expect(isNodeTarget('vercel')).toBe(true);
     expect(isNodeTarget(undefined)).toBe(false);
     expect(isNodeTarget('cloudflare')).toBe(false);
+  });
+
+  it('schema.json target enum matches the accepted targets', () => {
+    const schema = JSON.parse(readFileSync(join(import.meta.dirname, '../../schema.json'), 'utf8'));
+    for (const target of schema.properties.target.enum as Array<string>) {
+      setup(JSON.stringify({ target }));
+      expect(readConfig(tmpDir).target).toBe(target);
+    }
+    expect(schema.properties.target.enum).toEqual(['cloudflare', 'node', 'bun', 'deno', 'vercel']);
+    cleanup();
+  });
+});
+
+describe('vercel', () => {
+  it('accepts Vercel Function settings with target vercel', () => {
+    const vercel = { runtime: 'nodejs22.x', regions: ['iad1', 'sfo1'], maxDuration: 60 };
+    setup(JSON.stringify({ target: 'vercel', vercel }));
+    try {
+      expect(readConfig(tmpDir).vercel).toEqual(vercel);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('accepts maxDuration "max"', () => {
+    setup(JSON.stringify({ target: 'vercel', vercel: { maxDuration: 'max' } }));
+    try {
+      expect(readConfig(tmpDir).vercel).toEqual({ maxDuration: 'max' });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it.each([
+    [{ target: 'node', vercel: {} }, '"vercel" in void.json requires target: "vercel".'],
+    [{ target: 'vercel', vercel: [] }, '"vercel" in void.json must be an object.'],
+    [{ target: 'vercel', vercel: { memory: 1024 } }, "Unknown key 'vercel.memory'"],
+    [{ target: 'vercel', vercel: { runtime: 'nodejs20.x' } }, '"vercel.runtime" in void.json'],
+    [{ target: 'vercel', vercel: { regions: [] } }, '"vercel.regions" in void.json'],
+    [{ target: 'vercel', vercel: { regions: ['US East'] } }, '"vercel.regions" in void.json'],
+    [{ target: 'vercel', vercel: { maxDuration: 0 } }, '"vercel.maxDuration" in void.json'],
+    [{ target: 'vercel', vercel: { maxDuration: 1.5 } }, '"vercel.maxDuration" in void.json'],
+  ])('rejects %j', (config, message) => {
+    setup(JSON.stringify(config));
+    try {
+      expect(() => readConfig(tmpDir)).toThrow(message);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('matches the schema.json keys', () => {
+    const schema = JSON.parse(readFileSync(join(import.meta.dirname, '../../schema.json'), 'utf8'));
+    expect(Object.keys(schema.properties.vercel.properties)).toEqual([
+      'runtime',
+      'regions',
+      'maxDuration',
+    ]);
+    expect(schema.properties.vercel.properties.runtime.enum).toEqual([
+      'nodejs22.x',
+      'nodejs24.x',
+      'nodejs26.x',
+    ]);
   });
 });
 

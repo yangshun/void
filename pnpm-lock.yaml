@@ -534,6 +534,31 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0(@astrojs/compiler-rs@0.5.2)(@types/node@26.6.6)(@vitest/ui@5.0.5)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.64.1)(sass-embedded@1.104.1)(sass@1.104.1)(svelte@5.57.2)(terser@5.51.2)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1)
 
+  packages/deploy-vercel:
+    dependencies:
+      '@vercel/nft':
+        specifier: ^1.11.0
+        version: 1.11.0(rollup@4.64.9)(supports-color@10.2.2)
+      '@void/deploy-core':
+        specifier: workspace:*
+        version: link:../deploy-core
+      '@void/edge':
+        specifier: workspace:*
+        version: link:../edge
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      pathslash:
+        specifier: 'catalog:'
+        version: 0.1.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.4.0(@astrojs/compiler-rs@0.5.2)(@types/node@26.6.6)(@vitest/ui@5.0.5)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.64.1)(sass-embedded@1.104.1)(sass@1.104.1)(svelte@5.57.2)(terser@5.51.2)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1)
+
   packages/edge:
     dependencies:
       '@void/deploy-core':
@@ -762,6 +787,9 @@ importers:
       '@void/deploy-core':
         specifier: workspace:*
         version: link:../deploy-core
+      '@void/deploy-vercel':
+        specifier: workspace:*
+        version: link:../deploy-vercel
       '@void/edge':
         specifier: workspace:*
         version: link:../edge

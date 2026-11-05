@@ -286,6 +286,9 @@ Deploy target runtime. Defaults to `"cloudflare"`.
 | `"node"`       | Node.js, using `@hono/node-server`                        |
 | `"bun"`        | Bun, using `Bun.serve()`                                  |
 | `"deno"`       | Deno, using `Deno.serve()`                                |
+| `"vercel"`     | Vercel, writing Vercel's Build Output to `.vercel/output` |
+
+See [Node.js, Bun, and Deno](../integrations/nodejs-bun-deno.md) and [Vercel](../integrations/vercel.md) for what each target supports.
 
 Non-CF targets disable CF binding imports (`void/db`, `void/kv`, `void/auth`, `void/storage`, `void/ai`, `void/sandbox`, `void/env`). Importing any of these with a non-CF target produces a compile-time error. File-based routing, middleware, and `void/client` all work normally.
 
@@ -293,6 +296,23 @@ Void-managed WebSocket route files (`*.ws.ts`) are Cloudflare-only because they 
 
 ```json
 { "target": "node" }
+```
+
+### `vercel`
+
+Settings for the Vercel Function that `target: "vercel"` builds. Requires `target: "vercel"`.
+
+| Field         | Type                                           | Description                                                                                                     |
+| ------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `runtime`     | `"nodejs22.x"`, `"nodejs24.x"`, `"nodejs26.x"` | Node.js version. Defaults to the Node.js major that runs the build, or `nodejs24.x` if Vercel doesn't offer it. |
+| `regions`     | `string[]`                                     | Vercel region IDs to run the function in, such as `["iad1"]`.                                                   |
+| `maxDuration` | `number \| "max"`                              | Longest a request can run, in seconds, or `"max"` for your plan's limit.                                        |
+
+```ts
+export default defineConfig({
+  target: 'vercel',
+  vercel: { regions: ['iad1'], maxDuration: 60 },
+});
 ```
 
 ### `worker`

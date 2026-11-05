@@ -8,6 +8,7 @@ import {
   compileWorkerEntry,
   compileNodeApp,
   compileNodeServer,
+  compileVercelApp,
   type CompileOptions,
 } from '../../src/router/compile.ts';
 import type { ScanResult } from '../../src/router/scan.ts';
@@ -84,6 +85,15 @@ describe('compileRouteTable', () => {
     expect(code).not.toContain('getRuntimeEnv');
     expect(code).not.toContain(`import { withRuntimeEnv }`);
     expect(code).toContain('const withRuntimeEnv = (_env, fn) => fn();');
+  });
+
+  it('keeps the execution context for a Node target that passes one (Vercel)', () => {
+    const withContext = compile({ nodeTarget: true, executionContext: true });
+    expect(withContext).toContain('"nodeTarget":true,"executionContext":true');
+    expect(withContext).toContain('requestContext.run({ request, executionCtx: ctx }');
+    const without = compile({ nodeTarget: true });
+    expect(without).not.toContain('executionContext');
+    expect(without).toContain('requestContext.run({ request }');
   });
 
   it('adds SSR fallback handler when ssr entry is provided', () => {
@@ -1158,6 +1168,29 @@ describe('compileNodeApp', () => {
       helperPath: '/resolved/env-public.mjs',
     });
     expect(code).toContain('await _validateEnvOnce(process.env)');
+  });
+});
+
+describe('compileVercelApp', () => {
+  it('exports the Vercel handler around the route table', () => {
+    const code = compileVercelApp(undefined, 'static');
+    expect(code).toContain(
+      'import innerApp, { __voidCollectPrerenderPaths, scheduled } from "virtual:void-routes"',
+    );
+    expect(code).toMatch(/import \{ createVercelHandler \} from ".+\/runtime\/vercel\.m?[jt]s"/);
+    expect(code).toContain('export default createVercelHandler({');
+    expect(code).toContain('clientRoot: fileURLToPath(import.meta.voidClientDirectory)');
+    expect(code).toContain('assetsDir: "static"');
+    // Vercel serves static files and runs the function; there is no server to start.
+    expect(code).not.toContain('@hono/node-server');
+    expect(code).not.toContain('validateEnv');
+  });
+
+  it('validates the environment schema when the app has one', () => {
+    const code = compileVercelApp({ importPath: '/app/env.ts', helperPath: '/void/env.mjs' });
+    expect(code).toContain('import "/app/env.ts";');
+    expect(code).toContain('import { _validateEnvOnce } from "/void/env.mjs";');
+    expect(code).toContain('validateEnv: () => _validateEnvOnce(process.env),');
   });
 });
 

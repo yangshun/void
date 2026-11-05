@@ -60,10 +60,14 @@ export function createRoutingRuntime(
   options: {
     dev?: boolean;
     nodeTarget?: boolean;
+    /** The Node entry passes an execution context (Vercel), so keep it as Workers do. */
+    executionContext?: boolean;
     managedDispatch?: boolean;
     blockedAssetExtensions?: Array<string>;
   } = {},
 ): RoutingRuntime {
+  // Without a platform execution context, Node, Bun and Deno have none to pass on.
+  const withoutExecutionContext = options.nodeTarget === true && options.executionContext !== true;
   const originalUrls = new WeakMap<Request, URL>();
   const fallbackHandled = new WeakSet<Request>();
   // Outer requests a fallback answered. The fallback already applied the
@@ -92,7 +96,7 @@ export function createRoutingRuntime(
   };
   const dispatch = async (request: Request, c: Context, trace: string): Promise<Response> => {
     const response = annotate(
-      await (options.nodeTarget
+      await (withoutExecutionContext
         ? app.fetch(request, c.env)
         : app.fetch(request, c.env, c.executionCtx)),
       trace,
@@ -225,7 +229,7 @@ export function createRoutingRuntime(
     contextMiddleware,
     requestMiddleware: async (c, next) => {
       await requestContext.run(
-        options.nodeTarget
+        withoutExecutionContext
           ? { request: c.req.raw }
           : { request: c.req.raw, executionCtx: c.executionCtx },
         next,

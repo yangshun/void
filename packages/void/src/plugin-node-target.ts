@@ -17,11 +17,16 @@ export const CF_ONLY_IMPORTS: Array<string> = [
   'void/env',
 ];
 
-const CF_ONLY_REGEX = new RegExp(
-  `^(${CF_ONLY_IMPORTS.map((s) => s.replace('/', '\\/')).join('|')})$`,
-);
+/** Vercel has no Cloudflare Queues either, so its build rejects `void/queues` too. */
+const VERCEL_ONLY_BLOCKED_IMPORTS: Array<string> = ['void/queues'];
 
-type NodeTarget = 'node' | 'bun' | 'deno';
+function importGuardRegex(imports: ReadonlyArray<string>): RegExp {
+  return new RegExp(`^(${imports.map((s) => s.replace('/', '\\/')).join('|')})$`);
+}
+
+type NodeTarget = 'node' | 'bun' | 'deno' | 'vercel';
+
+type RoutingApi = { api?: { finalizeVercelOutput?: () => Promise<void> } };
 
 /**
  * Bridge Node.js HTTP to Web API and serve via a Hono app.
@@ -124,12 +129,17 @@ export function nodeTargetPlugin(target: NodeTarget): Array<Plugin> {
     );
   };
 
+  const vercel = target === 'vercel';
+  const blockedImports = importGuardRegex(
+    vercel ? [...CF_ONLY_IMPORTS, ...VERCEL_ONLY_BLOCKED_IMPORTS] : CF_ONLY_IMPORTS,
+  );
+
   const guardPlugin: Plugin = {
     name: 'void:node-target',
     enforce: 'pre',
 
     resolveId: {
-      filter: { id: CF_ONLY_REGEX },
+      filter: { id: blockedImports },
       handler(id, importer) {
         throw unavailable(id, this.environment.config.root, importer);
       },
@@ -159,24 +169,27 @@ export function nodeTargetPlugin(target: NodeTarget): Array<Plugin> {
       // so its ValidationError is not the class the routes check. Inline void, its adapters
       // and installed packages that import void in the dev server, Vitest and the build alike,
       // as with a workspace link.
-      const ssr = {
-        noExternal: ['void', /^@void\//, ...findVoidDependentPackages(root)],
-      };
+      const inlined: Array<string | RegExp> = [
+        'void',
+        /^@void\//,
+        ...findVoidDependentPackages(root),
+      ];
       if (command !== 'build') {
-        return { ssr };
+        return { ssr: { noExternal: inlined } };
       }
+      // A Vercel Function ships without the app's node_modules: bundle every
+      // dependency, and @vercel/nft traces whatever stays external.
+      const ssr = { noExternal: vercel ? (true as const) : inlined };
 
       const voidDir = join(root, '.void');
-      const ssrBuildOptions = {
-        outDir: 'dist/ssr',
-        rollupOptions: {
-          input: {
-            app: join(voidDir, 'app.ts'),
-            index: join(voidDir, 'index.ts'),
-          },
-          external: [/^node:/, '@hono/node-server', '@hono/node-server/serve-static'],
-        },
-      };
+      // Vercel runs app.js as the function; there is no server to start.
+      const input: Record<string, string> = vercel
+        ? { app: join(voidDir, 'app.ts') }
+        : { app: join(voidDir, 'app.ts'), index: join(voidDir, 'index.ts') };
+      const external: Array<string | RegExp> = vercel
+        ? [/^node:/]
+        : [/^node:/, '@hono/node-server', '@hono/node-server/serve-static'];
+      const ssrBuildOptions = { outDir: 'dist/ssr', rollupOptions: { input, external } };
 
       // Pages apps need dual builds: client (React hydration) + SSR (server entry).
       // API-only apps need a single SSR build.
@@ -210,6 +223,14 @@ export function nodeTargetPlugin(target: NodeTarget): Array<Plugin> {
       await builder.build(builder.environments.ssr);
       if (builder.environments.client) {
         await builder.build(builder.environments.client);
+      }
+      if (vercel) {
+        // The client instance recorded this build's immutable asset files.
+        const environment = builder.environments.client ?? builder.environments.ssr;
+        const routing = environment?.config.plugins.find(
+          (plugin) => plugin.name === 'void:routing',
+        ) as RoutingApi | undefined;
+        await routing?.api?.finalizeVercelOutput?.();
       }
     },
 

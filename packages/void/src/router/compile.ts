@@ -14,6 +14,7 @@ import type { ScanResult } from './scan.ts';
 
 const FETCH_SERVER_PATH = fileURLToPath(import.meta.resolve('#self/runtime/fetch-server'));
 const ROUTING_RUNTIME_PATH = fileURLToPath(import.meta.resolve('#self/runtime/routing'));
+const VERCEL_RUNTIME_PATH = fileURLToPath(import.meta.resolve('#self/runtime/vercel'));
 
 function pushDefaultErrorPageHelpers(lines: Array<string>, options: CompileOptions): void {
   lines.push(
@@ -60,8 +61,13 @@ export type CompileOptions = {
   devTriggerToken?: string;
   /** Auth configuration (null = disabled) */
   auth: AuthCompileOptions | null;
-  /** `node`/`bun`/`deno` target — omits executionCtx from ALS context */
+  /** Non-Cloudflare target (`node`/`bun`/`deno`/`vercel`). */
   nodeTarget?: boolean;
+  /**
+   * With `nodeTarget`, the entry passes an execution context (Vercel's
+   * `waitUntil`), so dispatch and the request store keep `executionCtx`.
+   */
+  executionContext?: boolean;
   /** Managed Cloudflare build whose dispatch worker owns edge routing. */
   managedDispatch?: boolean;
   /** Absolute path to the binding handler module (for /__void/* native binding access) */
@@ -273,7 +279,7 @@ export function compileRouteTable(
   }
   const blockedExts = ASSET_EXTENSIONS.filter((e) => !usedExts.has(e));
   lines.push(
-    `const __routingRuntime = __createRoutingRuntime(app, ${JSON.stringify({ dev: options.dev === true, nodeTarget: options.nodeTarget === true, managedDispatch, blockedAssetExtensions: blockedExts })});`,
+    `const __routingRuntime = __createRoutingRuntime(app, ${JSON.stringify({ dev: options.dev === true, nodeTarget: options.nodeTarget === true, ...(options.executionContext === true && { executionContext: true }), managedDispatch, blockedAssetExtensions: blockedExts })});`,
   );
   lines.push('export const requestContext = __routingRuntime.requestContext;');
   lines.push('app.use(__routingRuntime.contextMiddleware);');
@@ -884,7 +890,7 @@ function compilePrerenderCollector(
 
   lines.push(`export async function __voidCollectPrerenderPaths(request, env, ctx) {`);
   lines.push(`  return withRuntimeEnv(env, async () => {`);
-  if (options.nodeTarget) {
+  if (options.nodeTarget && !options.executionContext) {
     lines.push(`    return requestContext.run({ request }, async () => {`);
   } else {
     lines.push(`    return requestContext.run({ request, executionCtx: ctx }, async () => {`);
@@ -1437,6 +1443,36 @@ ${envMiddleware}app.post("/__void/prerender-paths", async (c) => {
 app.get("/assets/*", (c) => assets.fetch(c.req.raw));
 app.all("*", (c) => innerApp.fetch(c.req.raw, { ...c.env, ASSETS: assets }));
 export default app;`;
+}
+
+/**
+ * Generate the Vercel Function entry (`.void/app.ts` for `target: 'vercel'`).
+ * The handler runs the route table with an execution context backed by
+ * Vercel's `waitUntil`, answers Vercel Cron Jobs, and reads client files through
+ * a filesystem `ASSETS` provider, so it needs no `@hono/node-server`.
+ */
+export function compileVercelApp(
+  envSchemaModule?: { importPath: string; helperPath: string },
+  assetsDir = 'assets',
+): string {
+  const envSchemaImport = envSchemaModule
+    ? `import ${JSON.stringify(envSchemaModule.importPath)};\nimport { _validateEnvOnce } from ${JSON.stringify(envSchemaModule.helperPath)};\n`
+    : '';
+  const validateEnv = envSchemaModule
+    ? `\n  validateEnv: () => _validateEnvOnce(process.env),`
+    : '';
+  return `import { fileURLToPath } from "node:url";
+import { createVercelHandler } from ${JSON.stringify(VERCEL_RUNTIME_PATH)};
+import innerApp, { __voidCollectPrerenderPaths, scheduled } from "virtual:void-routes";
+${envSchemaImport}
+export default createVercelHandler({
+  app: innerApp,
+  scheduled,
+  collectPrerenderPaths: __voidCollectPrerenderPaths,
+  // Resolved by nodeTargetPlugin for this emitted chunk, including shared chunks.
+  clientRoot: fileURLToPath(import.meta.voidClientDirectory),
+  assetsDir: ${JSON.stringify(assetsDir)},${validateEnv}
+});`;
 }
 
 /**

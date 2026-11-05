@@ -18,6 +18,7 @@ import {
   resolveStaticDeployPreset,
   getGitCommit,
   resolveStaticBuildCommand,
+  VERCEL_TARGET_DEPLOY_MESSAGE,
 } from './deploy-helpers.ts';
 import { runFrameworkDeploy } from './deploy-managed-framework.ts';
 import { runFullDeploy } from './deploy-managed-full.ts';
@@ -351,6 +352,10 @@ async function runManagedDeploy(
 
       // Resolve the app type: void.config.ts > CLI flags > auto-detection.
       const voidConfig = readConfig(root);
+      // A Vercel build deploys through Vercel, not a Void platform.
+      if (voidConfig.target === 'vercel') {
+        throw new Error(VERCEL_TARGET_DEPLOY_MESSAGE);
+      }
       cliLog.info('config_resolved', {
         target: voidConfig.target,
         appType: voidConfig.inference?.appType,

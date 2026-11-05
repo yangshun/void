@@ -97,6 +97,7 @@ const integrationItems = [
   { text: 'Hono', link: '/integrations/hono' },
   { text: 'Cloudflare', link: '/integrations/cloudflare' },
   { text: 'Node.js / Bun / Deno', link: '/integrations/nodejs-bun-deno' },
+  { text: 'Vercel', link: '/integrations/vercel' },
 ];
 
 const integrationLinks = {

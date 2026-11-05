@@ -2594,6 +2594,24 @@ describe('runCloudflareDeploy — static, SPA, and SSG apps', () => {
     expect(trace).toEqual([]);
   });
 
+  it('points a Vercel build to Vercel before any account operation', async () => {
+    const root = makeProject({
+      'package.json': JSON.stringify({ name: 'vercel-app' }),
+      'void.json': JSON.stringify({ target: 'vercel' }),
+    });
+    const { deps, trace, exitCalls } = harness();
+    const output = vi.spyOn(log, 'error').mockImplementation(() => {});
+
+    await expect(
+      runCloudflareDeploy(root, { platform: 'cloudflare' }, silentCliLog, deps),
+    ).rejects.toBeInstanceOf(ExitError);
+
+    expect(exitCalls).toEqual([1]);
+    expect(trace).toEqual([]);
+    expect(output.mock.calls[0]?.[0]).toContain('run `vercel deploy --prebuilt`');
+    output.mockRestore();
+  });
+
   it('serves a configured SPA from assets, with the thin edge Worker only for /__void', async () => {
     const root = makeProject({
       'package.json': JSON.stringify({ name: 'spaapp' }),

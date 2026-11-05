@@ -1,0 +1,44 @@
+{
+  "name": "@void/deploy-vercel",
+  "version": "1.6.1",
+  "description": "Vercel Build Output API primitives for Void runtimes and deployment adapters.",
+  "homepage": "https://void.cloud",
+  "bugs": {
+    "url": "https://github.com/voidzero-dev/void/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/voidzero-dev/void.git",
+    "directory": "packages/deploy-vercel"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/nft": "^1.11.0",
+    "@void/deploy-core": "workspace:*",
+    "@void/edge": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "pathslash": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

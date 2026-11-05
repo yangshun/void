@@ -71,6 +71,7 @@ the app's existing saved destination, including when the target project is new.
 | Meta framework integration                 | `docs/integrations/frameworks/*.md`                                                       |
 | Coding agent setup                         | `docs/integrations/agents.md`                                                             |
 | Node.js / Bun / Deno targets               | `docs/integrations/nodejs-bun-deno.md`                                                    |
+| Deploy to Vercel (`target: 'vercel'`)      | `docs/integrations/vercel.md`                                                             |
 | ORMs and external databases                | `docs/guide/database.md`                                                                  |
 | Project structure and conventions          | `docs/reference/structure.md`                                                             |
 | Resource/binding inference                 | `docs/reference/resource-inference.md`                                                    |

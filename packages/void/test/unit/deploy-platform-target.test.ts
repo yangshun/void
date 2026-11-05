@@ -206,6 +206,15 @@ it('deploys to another connected platform without sending the original project I
   });
 });
 
+it('points a Vercel build to Vercel once the app configuration loads', async () => {
+  saveOriginal();
+  writeFileSync(join(root, 'void.json'), JSON.stringify({ target: 'vercel' }));
+  await expect(deploy()).rejects.toThrow(
+    'connect the repository in Vercel, or run `vercel deploy --prebuilt`.',
+  );
+  expect(requests.some(({ path }) => path.includes('/deploy'))).toBe(false);
+});
+
 it.each([false, true])(
   'preserves the link when creating the alternate project (interactive: %s)',
   async (interactive) => {

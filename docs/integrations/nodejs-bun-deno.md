@@ -4,7 +4,7 @@ outline: deep
 
 # Node.js, Bun, and Deno
 
-Set `target` in `void.config.ts` to build for Node.js, Bun, or Deno. You can run the resulting server on your own machine, in a container, or with a hosting provider.
+Set `target` in `void.config.ts` to build for Node.js, Bun, or Deno. You can run the resulting server on your own machine, in a container, or with a hosting provider. To deploy on Vercel, use the [Vercel target](./vercel.md) instead.
 
 ```json
 { "target": "node" }

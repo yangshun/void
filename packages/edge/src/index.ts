@@ -14,6 +14,7 @@ export {
   matchPattern,
   matchPatternCaptures,
   matchSegmentPattern,
+  patternRegexSource,
   substituteParams,
   type CompiledPattern,
 } from './pattern.ts';

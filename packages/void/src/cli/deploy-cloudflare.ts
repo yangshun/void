@@ -19,7 +19,7 @@ import {
   resolveCloudflareVoidStaticPreset,
   runCloudflareStaticDeploy,
 } from './deploy-cloudflare-static.ts';
-import { log } from './deploy-helpers.ts';
+import { log, VERCEL_TARGET_DEPLOY_MESSAGE } from './deploy-helpers.ts';
 import { logD1RestoreAfterDeployFailure } from './deploy-migrations.ts';
 import { printDeploySuccess } from './deploy-summary.ts';
 import { type RunDeployOptions, type CloudflareDeployDeps } from './deploy-types.ts';
@@ -55,6 +55,10 @@ export async function runCloudflareDeploy(
 
   // Keep this guard ahead of the static branch, so a node/bun/deno project is never
   // deployed as a Workers Assets app.
+  if (voidConfig.target === 'vercel') {
+    log.error(VERCEL_TARGET_DEPLOY_MESSAGE);
+    return exit(1);
+  }
   if (isNodeTarget(voidConfig.target)) {
     log.error(
       [

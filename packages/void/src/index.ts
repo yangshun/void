@@ -832,6 +832,12 @@ export function voidPlugin(options?: {
         `email: inbound email handlers (email/) require target: "cloudflare". They are not available with target: '${config.target}'.`,
       );
     }
+    // Vercel has nothing to deliver Cloudflare Queues batches, so consumers would never run.
+    if (config.target === 'vercel' && queues.length > 0) {
+      throw new Error(
+        `queues: queue consumers (queues/) require target: "cloudflare". They are not available with target: 'vercel'.`,
+      );
+    }
     if (config.routing?.revalidate) {
       voidWarn(
         '"routing.revalidate" in void.config.ts is ignored with target: "' +
@@ -853,12 +859,13 @@ export function voidPlugin(options?: {
         devTriggerToken,
         headConfig: config.head,
         prerenderPaths: config.routing?.prerender,
-        target: config.target as 'node' | 'bun' | 'deno',
+        target: config.target as 'node' | 'bun' | 'deno' | 'vercel',
+        vercel: config.vercel,
         routing: config.routing,
         hasSandbox: false,
       }),
       prerenderPlugin(root, config),
-      ...nodeTargetPlugin(config.target as 'node' | 'bun' | 'deno'),
+      ...nodeTargetPlugin(config.target as 'node' | 'bun' | 'deno' | 'vercel'),
     ];
   }
 

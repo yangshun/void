@@ -15,6 +15,8 @@ void deploy --platform cloudflare --provision
 
 Auto-detects your project type and chooses the right pipeline. See [Supported App Types](../../guide/app-types.md) and [Deployment](../../guide/deployment.md) for details.
 
+`void deploy` deploys to Cloudflare and Void platforms. An app with `target: "vercel"` deploys with Vercel instead; see [Vercel](../../integrations/vercel.md).
+
 Deploying to a Void platform requires an explicit connection with `void connect <url>`.
 A saved project URL or `VOID_API_URL` alone does not establish a connection.
 In fresh CI environments, run `void connect "$VOID_API_URL" --no-login` first.

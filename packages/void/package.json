@@ -45,7 +45,8 @@
     "#self/runtime/migration-handler-pg": "./dist/runtime/migration-handler-pg.mjs",
     "#self/runtime/migration-handler-mysql": "./dist/runtime/migration-handler-mysql.mjs",
     "#self/runtime/ws-server": "./dist/runtime/ws-server.mjs",
-    "#self/runtime/routing": "./dist/runtime/routing.mjs"
+    "#self/runtime/routing": "./dist/runtime/routing.mjs",
+    "#self/runtime/vercel": "./dist/runtime/vercel.mjs"
   },
   "exports": {
     ".": {
@@ -359,6 +360,7 @@
     "@napi-rs/keyring": "catalog:",
     "@void/deploy-cloudflare": "workspace:*",
     "@void/deploy-core": "workspace:*",
+    "@void/deploy-vercel": "workspace:*",
     "@void/edge": "workspace:*",
     "@void/isr": "workspace:*",
     "@void/platform": "workspace:*",

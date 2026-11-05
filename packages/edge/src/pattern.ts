@@ -359,8 +359,8 @@ function greedyEnds(prepared: Prepared, path: string, upTo: number): Int32Array 
   return ends;
 }
 
-/** The regex the earlier string-building compiler produced, for the deprecated `regex` view. */
-function toRegExp(tokens: ReadonlyArray<Token>): RegExp {
+/** An anchored regex source with one named group per capture, in source order. */
+function toRegexSource(tokens: ReadonlyArray<Token>): string {
   let body = '';
   for (const token of tokens) {
     if (token.kind === 'text') {
@@ -371,7 +371,12 @@ function toRegExp(tokens: ReadonlyArray<Token>): RegExp {
       body += token.name ? `(?<${token.name}>.*)` : '.*';
     }
   }
-  return new RegExp(`^${body}$`);
+  return `^${body}$`;
+}
+
+/** The regex the earlier string-building compiler produced, for the deprecated `regex` view. */
+function toRegExp(tokens: ReadonlyArray<Token>): RegExp {
+  return new RegExp(toRegexSource(tokens));
 }
 
 const compileCache = new Map<string, Compiled>();
@@ -424,6 +429,18 @@ export function compilePattern(source: string): CompiledPattern {
     throw new SyntaxError(compiled.error);
   }
   return compiled;
+}
+
+/**
+ * The anchored PCRE-compatible source for a capture pattern, for routers outside
+ * Void that only accept regex rules (such as Vercel's Build Output API routes).
+ * `:name` becomes `(?<name>[^/]+)`, and `:name*` and `*` become `(?<name>.*)`.
+ * Void's own matching never builds this regex. Throws a SyntaxError for a
+ * malformed pattern, like `compilePattern`.
+ */
+export function patternRegexSource(source: string): string {
+  compilePattern(source);
+  return toRegexSource(parseCapture(source).tokens);
 }
 
 /**

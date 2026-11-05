@@ -65,6 +65,7 @@ pnpm workspaces managed through Vite+. Shared dependency versions use the **pnpm
 | ------------------------------------------------------------ | ------------------------- | ----------------------------------------------------------------- |
 | [`packages/deploy-core`](./packages/deploy-core)             | `@void/deploy-core`       | Shared deployment manifests, events, and target-neutral contracts |
 | [`packages/deploy-cloudflare`](./packages/deploy-cloudflare) | `@void/deploy-cloudflare` | Direct Cloudflare config and verified upload primitives           |
+| [`packages/deploy-vercel`](./packages/deploy-vercel)         | `@void/deploy-vercel`     | Vercel Build Output API routes, static files, and function output |
 | [`packages/edge`](./packages/edge)                           | `@void/edge`              | Shared routing, headers, and static edge runtime                  |
 | [`packages/isr`](./packages/isr)                             | `@void/isr`               | Shared ISR protocol, core logic, and direct runtime               |
 | [`packages/platform`](./packages/platform/README.md)         | `@void/platform`          | Self-hosted installation contracts and packaged platform runtime  |

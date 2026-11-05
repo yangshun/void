@@ -161,6 +161,12 @@ export async function resolveDeployLiveBindingConfig(
   });
 }
 
+/** Both deploy targets run Cloudflare Workers; a `target: 'vercel'` build deploys through Vercel. */
+export const VERCEL_TARGET_DEPLOY_MESSAGE: string = [
+  'deploy: this app builds for Vercel (target: "vercel"), and `void deploy` does not deploy to Vercel.',
+  'Run `vite build`, then deploy `.vercel/output` with Vercel: connect the repository in Vercel, or run `vercel deploy --prebuilt`.',
+].join('\n');
+
 export function getExitCode(error: unknown): number {
   if (
     typeof error === 'object' &&

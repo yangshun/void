@@ -175,10 +175,20 @@ export type CloudflareConfig = Record<string, unknown> & {
   addresses?: Array<string>;
 };
 
+/** Settings for the Vercel Function that `target: 'vercel'` builds. */
+export type VercelTargetConfig = {
+  /** Node.js runtime. Defaults to the building Node.js major when Vercel offers it, otherwise 24. */
+  runtime?: 'nodejs22.x' | 'nodejs24.x' | 'nodejs26.x';
+  /** Vercel region ids the function runs in, such as `iad1`. */
+  regions?: Array<string>;
+  /** Maximum duration in seconds, or `'max'` for the plan's limit. */
+  maxDuration?: number | 'max';
+};
+
 /** Shape of the Void project config. All fields optional. */
 export type VoidConfig = {
   sourceDir?: string;
-  target?: 'cloudflare' | 'node' | 'bun' | 'deno';
+  target?: 'cloudflare' | 'node' | 'bun' | 'deno' | 'vercel';
   output?: 'server' | 'static';
   auth?: AuthConfig;
   head?: HeadConfig;
@@ -188,6 +198,7 @@ export type VoidConfig = {
   remote?: boolean;
   worker?: WranglerConfig;
   cloudflare?: CloudflareConfig;
+  vercel?: VercelTargetConfig;
   deploy?: DeployConfig;
   database?: 'pg' | 'mysql' | DatabaseConfig;
   ai?: AiConfig;
@@ -196,7 +207,9 @@ export type VoidConfig = {
 
 const CONFIG_FILE = 'void.json';
 
-const VALID_TARGETS = new Set(['cloudflare', 'node', 'bun', 'deno']);
+const VALID_TARGETS = new Set(['cloudflare', 'node', 'bun', 'deno', 'vercel']);
+const VERCEL_KEYS = ['runtime', 'regions', 'maxDuration'];
+const VERCEL_RUNTIMES = new Set(['nodejs22.x', 'nodejs24.x', 'nodejs26.x']);
 const VALID_APP_TYPES = new Set(['spa', 'static', 'void', 'framework']);
 const VALID_OUTPUTS = new Set(['server', 'static']);
 /**
@@ -457,9 +470,13 @@ function validateConfigObject(obj: unknown): VoidConfig {
   if (obj.target !== undefined) {
     if (typeof obj.target !== 'string' || !VALID_TARGETS.has(obj.target)) {
       throw new Error(
-        `config: "target" in ${CONFIG_FILE} must be one of: cloudflare, node, bun, deno.`,
+        `config: "target" in ${CONFIG_FILE} must be one of: cloudflare, node, bun, deno, vercel.`,
       );
     }
+  }
+
+  if (obj.vercel !== undefined) {
+    validateVercelConfig(obj.vercel, obj.target);
   }
 
   // Validate output
@@ -1047,9 +1064,57 @@ function parseEmailFrom(value: unknown): void {
   }
 }
 
-/** Returns true if the target is a non-Cloudflare runtime (Node.js, Bun, Deno). */
+function validateVercelConfig(value: unknown, target: unknown): void {
+  if (!isRecord(value)) {
+    throw new Error(`config: "vercel" in ${CONFIG_FILE} must be an object.`);
+  }
+  if (target !== 'vercel') {
+    throw new Error(`config: "vercel" in ${CONFIG_FILE} requires target: "vercel".`);
+  }
+  for (const key of Object.keys(value)) {
+    if (!VERCEL_KEYS.includes(key)) {
+      throw new Error(
+        `config: Unknown key 'vercel.${key}' in ${CONFIG_FILE}. Valid: ${VERCEL_KEYS.join(', ')}.`,
+      );
+    }
+  }
+  if (
+    value.runtime !== undefined &&
+    (typeof value.runtime !== 'string' || !VERCEL_RUNTIMES.has(value.runtime))
+  ) {
+    throw new Error(
+      `config: "vercel.runtime" in ${CONFIG_FILE} must be one of: ${[...VERCEL_RUNTIMES].join(', ')}.`,
+    );
+  }
+  if (
+    value.regions !== undefined &&
+    (!Array.isArray(value.regions) ||
+      value.regions.length === 0 ||
+      !value.regions.every((region) => typeof region === 'string' && /^[a-z]+\d+$/.test(region)))
+  ) {
+    throw new Error(
+      `config: "vercel.regions" in ${CONFIG_FILE} must be a nonempty array of Vercel region ids, such as ["iad1"].`,
+    );
+  }
+  if (
+    value.maxDuration !== undefined &&
+    value.maxDuration !== 'max' &&
+    (typeof value.maxDuration !== 'number' ||
+      !Number.isInteger(value.maxDuration) ||
+      value.maxDuration < 1)
+  ) {
+    throw new Error(
+      `config: "vercel.maxDuration" in ${CONFIG_FILE} must be a positive whole number of seconds or "max".`,
+    );
+  }
+}
+
+/**
+ * Returns true if the target is a non-Cloudflare runtime: Node.js, Bun, Deno, or
+ * Vercel, whose functions run Node.js.
+ */
 export function isNodeTarget(target: VoidConfig['target']): boolean {
-  return target === 'node' || target === 'bun' || target === 'deno';
+  return target === 'node' || target === 'bun' || target === 'deno' || target === 'vercel';
 }
 
 /**
