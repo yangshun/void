@@ -147,7 +147,7 @@ const url = routeUrl('/users/[id]', {
 // /users/42?tab=activity#details
 ```
 
-TypeScript checks the route and required parameter names. Patterns follow your filenames: `pages/users/[id].tsx`, `.vue`, or `.svelte` uses `/users/[id]`.
+TypeScript checks the route and required parameter names. Patterns follow your filenames: `pages/users/[id].tsx`, `.vue`, or `.svelte` uses `/users/[id]`. When a call doesn't match, the type error says what to fix, such as `Unknown route: /user/[id]` or `Missing param id for route /users/[id]`.
 
 Parameters accept strings or numbers and are URL-encoded for you. Query values can be strings, numbers, booleans, or arrays. Arrays become repeated keys; `null` and `undefined` values are omitted.
 

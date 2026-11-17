@@ -58,4 +58,62 @@ describe('routeUrl types', () => {
     routeUrl(path);
     routeUrl(path, { params: { id: '123' } });
   });
+
+  it('accepts a generic route with its own options', () => {
+    function link<P extends RoutePath>(path: P, options: RouteOptions<P>): string {
+      return routeUrl(path, options);
+    }
+    link('/route-types/:id', { params: { id: '123' } });
+    function bare<P extends RoutePath>(path: P): string {
+      // @ts-expect-error a generic route may require params
+      return routeUrl(path);
+    }
+    void bare;
+  });
+
+  it('accepts undefined options only for static routes', () => {
+    const none = undefined as RouteOptions<'/route-types'> | undefined;
+    routeUrl('/route-types', none);
+    routeUrl('/route-types', undefined);
+    routeUrl('/route-types', { params: undefined });
+    const maybe = undefined as RouteOptions<'/route-types/:id'> | undefined;
+    // @ts-expect-error params are required
+    routeUrl('/route-types/:id', maybe);
+    // @ts-expect-error params are required
+    routeUrl('/route-types/:id', undefined);
+  });
+
+  it('rejects options typed for another route', () => {
+    const options: RouteOptions<'/route-types/:id'> = { params: { id: '123' } };
+    // @ts-expect-error static routes do not accept params
+    routeUrl('/route-types', options);
+    // @ts-expect-error param names must match
+    routeUrl('/route-types/files/:path{.+}', options);
+  });
+
+  it('checks params that are not object literals', () => {
+    const named = { id: '123' };
+    routeUrl('/route-types/:id', { params: named });
+    const options = { params: { id: 123 }, query: { page: 1 } };
+    routeUrl('/route-types/:id', options);
+    const wrong = { params: { wrong: '123' } };
+    // @ts-expect-error param names must match
+    routeUrl('/route-types/:id', wrong);
+    const record: Record<string, string> = {};
+    // @ts-expect-error a record may lack the param
+    routeUrl('/route-types/:id', { params: record });
+    // @ts-expect-error params must be an object
+    routeUrl('/route-types/:id', { params: '123' });
+    const optional: { id?: string } = {};
+    // @ts-expect-error the param may be undefined
+    routeUrl('/route-types/:id', { params: optional });
+  });
+
+  it('keeps error messages out of route completions', () => {
+    // Completions for the path come from its parameter type: every known route before
+    // a pattern is inferred, and no string literal once an unknown one is.
+    expectTypeOf<Parameters<typeof routeUrl<string>>[0]>().toEqualTypeOf<RoutePath>();
+    expectTypeOf<Parameters<typeof routeUrl<'/route-types/typo'>>[0]>().not.toBeString();
+    expectTypeOf<Parameters<typeof routeUrl<'/route-types/:id'>>[0]>().not.toBeString();
+  });
 });

@@ -138,18 +138,114 @@ export type RequestUrl = TypedRoutes extends true
 export type RouteQueryValue = string | number | boolean | null | undefined;
 export type RouteQuery = Record<string, RouteQueryValue | ReadonlyArray<RouteQueryValue>>;
 
-export type RouteOptions<P extends RoutePath> = {
+// `routeUrl()` infers the pattern it was given, known or not, so its helper types
+// accept any string. An unknown pattern has no params.
+type RouteParamName<P extends string> = P extends RoutePath ? RoutePathMap[P] & string : never;
+type RouteUrlOptions<P extends string> = {
   query?: RouteQuery;
   hash?: string;
-} & ([RoutePathMap[P]] extends [never]
+} & ([RouteParamName<P>] extends [never]
   ? { params?: never }
-  : { params: { [K in RoutePathMap[P] & string]: string | number } });
+  : { params: { [K in RouteParamName<P>]: string | number } });
+
+export type RouteOptions<P extends RoutePath> = RouteUrlOptions<P>;
 
 export type RouteDestination<P extends RoutePath = RoutePath> = P extends RoutePath
   ? { pathname: P } & RouteOptions<P>
   : never;
 
 export type RouteUrlInput = Href | URL | RouteDestination;
+
+// An invalid `routeUrl()` call fails against a type that spells out what to fix,
+// so the message appears in TypeScript's error. Where an object is expected, the
+// type is the message itself: the error stays on one line and object completions
+// gain no members. Where a string can be given (the path, or the value of an
+// unknown param), the message is wrapped in `RouteUrlError`: editors would offer
+// a bare string literal there as a completion.
+interface RouteUrlError<Message extends string> {
+  readonly __voidRouteUrlError: Message;
+}
+type UnknownRouteMessage<P extends string> =
+  `Unknown route: ${P}. Pass a registered route pattern as the first argument.`;
+// A route union names each missing param with the routes that declare it.
+type MissingParamMessage<P extends string, Name extends string> = P extends unknown
+  ? Name extends RouteParamName<P>
+    ? `Missing param ${Name} for route ${P}. Pass it in \`{ params: { ... } }\`.`
+    : never
+  : never;
+type UnknownParamMessage<
+  P extends string,
+  Name extends PropertyKey,
+> = `Unknown param ${Name & (string | number)} for route ${P}. Use the parameter names in the route pattern.`;
+type ParamValueMessage<
+  P extends string,
+  Name extends string,
+> = `Param ${Name} for route ${P} must be a string or number.`;
+type NoParamsMessage<P extends string> = `Route ${P} has no path params. Remove params.`;
+
+// `O` is the type of the options argument, or `never` when the call has none.
+// Until a pattern is inferred, `P` is `string` and the path is every known pattern,
+// which editors offer as completions. TypeScript checks a type parameter against
+// every branch, so `P & RoutePath` keeps one constrained to `RoutePath` assignable.
+type RouteUrlPath<P extends string, O> = [P] extends [RoutePath]
+  ? [O] extends [never]
+    ? [RouteParamName<P>] extends [never]
+      ? P
+      : RouteUrlError<MissingParamMessage<P, RouteParamName<P>>>
+    : P
+  : string extends P
+    ? RoutePath
+    : (P & RoutePath) | RouteUrlError<UnknownRouteMessage<Exclude<P, RoutePath>>>;
+
+type RouteUrlGivenParams<P extends string, Given> = {
+  [K in keyof Given]: K extends RouteParamName<P>
+    ? [Given[K]] extends [string | number]
+      ? string | number
+      : ParamValueMessage<P, K>
+    : RouteUrlError<UnknownParamMessage<P, K>>;
+};
+// `never` when the given params fit the route; otherwise a type that names what to fix.
+// Unknown names are reported before missing ones, so a misspelled param names the typo.
+// Params without literal keys keep the plain type error.
+type RouteUrlParamsError<P extends string, Given> = [Given] extends [object]
+  ? string extends keyof Given
+    ? never
+    : [Exclude<keyof Given, RouteParamName<P>>] extends [never]
+      ? [Exclude<RouteParamName<P>, keyof Given>] extends [never]
+        ? [Given] extends [{ [K in RouteParamName<P>]: string | number }]
+          ? never
+          : RouteUrlGivenParams<P, Given>
+        : MissingParamMessage<P, Exclude<RouteParamName<P>, keyof Given>>
+      : RouteUrlGivenParams<P, Given>
+  : never;
+// `never` when the given options fit the route; otherwise a type that names what to fix.
+type RouteUrlOptionsError<P extends string, O> = O extends { params: infer Given }
+  ? [RouteParamName<P>] extends [never]
+    ? [Given] extends [undefined]
+      ? never
+      : { query?: RouteQuery; hash?: string; params?: NoParamsMessage<P> }
+    : [RouteUrlParamsError<P, Given>] extends [never]
+      ? never
+      : { query?: RouteQuery; hash?: string; params: RouteUrlParamsError<P, Given> }
+  : [RouteParamName<P>] extends [never]
+    ? never
+    : MissingParamMessage<P, RouteParamName<P>>;
+// Options already typed as the route's own, as in a wrapper that takes `RouteOptions<P>`
+// for a generic `P`, pass as they are: TypeScript cannot evaluate the checks for that `P`.
+type RouteUrlOptionsArg<P extends string, O> = [O, RouteUrlOptions<P>] extends [
+  RouteUrlOptions<P>,
+  O,
+]
+  ? RouteUrlOptions<P>
+  : [RouteUrlOptionsError<P, O>] extends [never]
+    ? RouteUrlOptions<P>
+    : RouteUrlOptionsError<P, O>;
+type RouteUrlArgs<P extends string, O> = [O] extends [never]
+  ? // `| O` is where TypeScript infers `O` from the options argument.
+    [options?: RouteUrlOptions<P> | O]
+  : [RouteParamName<P>] extends [never]
+    ? [options?: RouteUrlOptionsArg<P, O>]
+    : [options: RouteUrlOptionsArg<P, O>];
 
 type UrlOptions = {
   params?: Record<string, string | number>;
@@ -158,13 +254,12 @@ type UrlOptions = {
 };
 
 /** Build a relative URL from a known route pattern. */
-export function routeUrl<P extends RoutePath>(
-  path: P,
-  ...args: [RoutePathMap[NoInfer<P>]] extends [never]
-    ? [options?: RouteOptions<P>]
-    : [options: RouteOptions<P>]
-): RouteUrl {
-  return buildRouteUrl(path, args[0]) as RouteUrl;
+export function routeUrl<P extends string, O = never>(
+  path: RouteUrlPath<P, O>,
+  ...args: RouteUrlArgs<P, O>
+): RouteUrl;
+export function routeUrl(path: string, options?: UrlOptions): RouteUrl {
+  return buildRouteUrl(path, options) as RouteUrl;
 }
 
 /** @internal Convert navigation inputs to URL strings without requiring an origin. */

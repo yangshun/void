@@ -548,6 +548,103 @@ action('/users/[id]?missing', { params: { id: '42' } });
   );
 
   it.each(['generated', 'package'] as const)(
+    'names what to fix in an invalid routeUrl() call through the %s declarations',
+    async (declarations) => {
+      const calls: Array<[call: string, message: string]> = [
+        [
+          "routeUrl('/missing')",
+          'Unknown route: /missing. Pass a registered route pattern as the first argument.',
+        ],
+        [
+          "routeUrl('/users/[id]')",
+          'Missing param id for route /users/[id]. Pass it in `{ params: { ... } }`.',
+        ],
+        [
+          "routeUrl('/users/[id]', { params: { userId: 42 } })",
+          'Unknown param userId for route /users/[id]. Use the parameter names in the route pattern.',
+        ],
+        [
+          "routeUrl('/users/[id]', { params: { id: true } })",
+          'Param id for route /users/[id] must be a string or number.',
+        ],
+        [
+          "routeUrl('/about', { params: { id: 42 } })",
+          'Route /about has no path params. Remove params.',
+        ],
+        [
+          "routeUrl('/users/[id]', { query: { tab: 'activity' } })",
+          'Missing param id for route /users/[id]. Pass it in `{ params: { ... } }`.',
+        ],
+        [
+          "routeUrl('/users/[id]', { params: {} })",
+          'Missing param id for route /users/[id]. Pass it in `{ params: { ... } }`.',
+        ],
+        [
+          "routeUrl('/users/[id]', { params: { id: 42, tab: 'activity' } })",
+          'Unknown param tab for route /users/[id]. Use the parameter names in the route pattern.',
+        ],
+        [
+          "routeUrl('/users/:id')",
+          'Missing param id for route /users/:id. Pass it in `{ params: { ... } }`.',
+        ],
+        [
+          "routeUrl('/files/[...path]')",
+          'Missing param path for route /files/[...path]. Pass it in `{ params: { ... } }`.',
+        ],
+        [
+          "routeUrl('/wild/[...]')",
+          'Missing param * for route /wild/[...]. Pass it in `{ params: { ... } }`.',
+        ],
+        [
+          "routeUrl('/users/42')",
+          'Unknown route: /users/42. Pass a registered route pattern as the first argument.',
+        ],
+      ];
+      const root = await createFixture({
+        typedRoutes: true,
+        extraFiles: {
+          'check-diagnostics.ts': `import { routeUrl } from 'void/routes';\n${calls
+            .map(([call]) => `${call};\n`)
+            .join('')}`,
+        },
+      });
+      const { output, status } = typecheck(root, declarations, ['check-diagnostics.ts'], {
+        pretty: false,
+      });
+      expect(status).not.toBe(0);
+      // One diagnostic per call; the lines indented under it explain the same error.
+      const diagnostics = output
+        .trim()
+        .split(/\n(?=\S)/)
+        .map((diagnostic) => {
+          const [, line, text] = diagnostic.match(/check-diagnostics\.ts\((\d+),\d+\): (.*)$/s)!;
+          return { call: calls[Number(line) - 2]![0], text };
+        });
+      expect(diagnostics.map(({ call }) => call)).toEqual(calls.map(([call]) => call));
+      for (const [index, [, message]] of calls.entries()) {
+        expect(diagnostics[index]!.text).toContain(message);
+      }
+      if (declarations === 'generated') {
+        // Each error is the message alone, not an explanation to search for it.
+        expect(diagnostics.map(({ text }) => text)).toEqual([
+          `error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteUrlError<"${calls[0]![1]}">'.`,
+          `error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteUrlError<"${calls[1]![1]}">'.`,
+          `error TS2322: Type 'number' is not assignable to type 'RouteUrlError<"${calls[2]![1]}">'.`,
+          `error TS2322: Type 'true' is not assignable to type '"${calls[3]![1]}"'.`,
+          `error TS2322: Type '{ id: number; }' is not assignable to type '"${calls[4]![1]}"'.`,
+          `error TS2345: Argument of type '{ query: { tab: string; }; }' is not assignable to parameter of type '"${calls[5]![1]}"'.`,
+          `error TS2322: Type '{}' is not assignable to type '"${calls[6]![1]}"'.`,
+          `error TS2322: Type 'string' is not assignable to type 'RouteUrlError<"${calls[7]![1]}">'.`,
+          `error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteUrlError<"${calls[8]![1]}">'.`,
+          `error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteUrlError<"${calls[9]![1]}">'.`,
+          `error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteUrlError<"${calls[10]![1]}">'.`,
+          `error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteUrlError<"${calls[11]![1]}">'.`,
+        ]);
+      }
+    },
+  );
+
+  it.each(['generated', 'package'] as const)(
     'checks URL strings against routes through the %s declarations with routing.typedRoutes',
     async (declarations) => {
       const root = await createFixture({ typedRoutes: true });

@@ -146,12 +146,16 @@ export function generateRouteTypes(
   lines.push(
     '  export type RouteQuery = Record<string, RouteQueryValue | ReadonlyArray<RouteQueryValue>>;',
   );
-  lines.push('  export type RouteOptions<P extends RoutePath> = {');
+  lines.push(
+    '  type RouteParamName<P extends string> = P extends RoutePath ? RoutePathMap[P] & string : never;',
+  );
+  lines.push('  type RouteUrlOptions<P extends string> = {');
   lines.push('    query?: RouteQuery;');
   lines.push('    hash?: string;');
-  lines.push('  } & ([RoutePathMap[P]] extends [never]');
+  lines.push('  } & ([RouteParamName<P>] extends [never]');
   lines.push('    ? { params?: never }');
-  lines.push('    : { params: { [K in RoutePathMap[P] & string]: string | number } });');
+  lines.push('    : { params: { [K in RouteParamName<P>]: string | number } });');
+  lines.push('  export type RouteOptions<P extends RoutePath> = RouteUrlOptions<P>;');
   lines.push(
     '  export type RouteDestination<P extends RoutePath = RoutePath> = P extends RoutePath',
   );
@@ -198,11 +202,90 @@ export function generateRouteTypes(
   );
   lines.push('    : string;');
   lines.push('  export type RouteUrlInput = Href | URL | RouteDestination;');
-  lines.push('  export function routeUrl<P extends RoutePath>(');
-  lines.push('    path: P,');
-  lines.push('    ...args: [RoutePathMap[NoInfer<P>]] extends [never]');
-  lines.push('      ? [options?: RouteOptions<P>]');
-  lines.push('      : [options: RouteOptions<P>]');
+  // The routeUrl() declarations mirror runtime/routing/route-url.ts, which explains them.
+  lines.push('  interface RouteUrlError<Message extends string> {');
+  lines.push('    readonly __voidRouteUrlError: Message;');
+  lines.push('  }');
+  lines.push('  type UnknownRouteMessage<P extends string> =');
+  lines.push('    `Unknown route: ${P}. Pass a registered route pattern as the first argument.`;');
+  lines.push(
+    '  type MissingParamMessage<P extends string, Name extends string> = P extends unknown',
+  );
+  lines.push('    ? Name extends RouteParamName<P>');
+  lines.push(
+    '      ? `Missing param ${Name} for route ${P}. Pass it in \\`{ params: { ... } }\\`.`',
+  );
+  lines.push('      : never');
+  lines.push('    : never;');
+  lines.push('  type UnknownParamMessage<P extends string, Name extends PropertyKey> =');
+  lines.push(
+    '    `Unknown param ${Name & (string | number)} for route ${P}. Use the parameter names in the route pattern.`;',
+  );
+  lines.push('  type ParamValueMessage<P extends string, Name extends string> =');
+  lines.push('    `Param ${Name} for route ${P} must be a string or number.`;');
+  lines.push(
+    '  type NoParamsMessage<P extends string> = `Route ${P} has no path params. Remove params.`;',
+  );
+  lines.push('  type RouteUrlPath<P extends string, O> = [P] extends [RoutePath]');
+  lines.push('    ? [O] extends [never]');
+  lines.push('      ? [RouteParamName<P>] extends [never]');
+  lines.push('        ? P');
+  lines.push('        : RouteUrlError<MissingParamMessage<P, RouteParamName<P>>>');
+  lines.push('      : P');
+  lines.push('    : string extends P');
+  lines.push('      ? RoutePath');
+  lines.push(
+    '      : (P & RoutePath) | RouteUrlError<UnknownRouteMessage<Exclude<P, RoutePath>>>;',
+  );
+  lines.push('  type RouteUrlGivenParams<P extends string, Given> = {');
+  lines.push('    [K in keyof Given]: K extends RouteParamName<P>');
+  lines.push('      ? [Given[K]] extends [string | number]');
+  lines.push('        ? string | number');
+  lines.push('        : ParamValueMessage<P, K>');
+  lines.push('      : RouteUrlError<UnknownParamMessage<P, K>>;');
+  lines.push('  };');
+  lines.push('  type RouteUrlParamsError<P extends string, Given> = [Given] extends [object]');
+  lines.push('    ? string extends keyof Given');
+  lines.push('      ? never');
+  lines.push('      : [Exclude<keyof Given, RouteParamName<P>>] extends [never]');
+  lines.push('        ? [Exclude<RouteParamName<P>, keyof Given>] extends [never]');
+  lines.push('          ? [Given] extends [{ [K in RouteParamName<P>]: string | number }]');
+  lines.push('            ? never');
+  lines.push('            : RouteUrlGivenParams<P, Given>');
+  lines.push('          : MissingParamMessage<P, Exclude<RouteParamName<P>, keyof Given>>');
+  lines.push('        : RouteUrlGivenParams<P, Given>');
+  lines.push('    : never;');
+  lines.push(
+    '  type RouteUrlOptionsError<P extends string, O> = O extends { params: infer Given }',
+  );
+  lines.push('    ? [RouteParamName<P>] extends [never]');
+  lines.push('      ? [Given] extends [undefined]');
+  lines.push('        ? never');
+  lines.push('        : { query?: RouteQuery; hash?: string; params?: NoParamsMessage<P> }');
+  lines.push('      : [RouteUrlParamsError<P, Given>] extends [never]');
+  lines.push('        ? never');
+  lines.push(
+    '        : { query?: RouteQuery; hash?: string; params: RouteUrlParamsError<P, Given> }',
+  );
+  lines.push('    : [RouteParamName<P>] extends [never]');
+  lines.push('      ? never');
+  lines.push('      : MissingParamMessage<P, RouteParamName<P>>;');
+  lines.push('  type RouteUrlOptionsArg<P extends string, O> = [O, RouteUrlOptions<P>] extends [');
+  lines.push('    RouteUrlOptions<P>,');
+  lines.push('    O,');
+  lines.push('  ]');
+  lines.push('    ? RouteUrlOptions<P>');
+  lines.push('    : [RouteUrlOptionsError<P, O>] extends [never]');
+  lines.push('      ? RouteUrlOptions<P>');
+  lines.push('      : RouteUrlOptionsError<P, O>;');
+  lines.push('  type RouteUrlArgs<P extends string, O> = [O] extends [never]');
+  lines.push('    ? [options?: RouteUrlOptions<P> | O]');
+  lines.push('    : [RouteParamName<P>] extends [never]');
+  lines.push('      ? [options?: RouteUrlOptionsArg<P, O>]');
+  lines.push('      : [options: RouteUrlOptionsArg<P, O>];');
+  lines.push('  export function routeUrl<P extends string, O = never>(');
+  lines.push('    path: RouteUrlPath<P, O>,');
+  lines.push('    ...args: RouteUrlArgs<P, O>');
   lines.push('  ): RouteUrl;');
   lines.push('');
   lines.push('  export interface RouteTypesConfig {');
